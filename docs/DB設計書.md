@@ -12,7 +12,7 @@ DDL: [db/schema.sql](./db/schema.sql)（MySQL 8.0.46 で作成と制約の動作
 | 休憩 | 1日1回。昼休憩（既定12:00〜13:00）は別扱い | D-007, D-009 |
 | 標準労働時間 | 全社共通の1パターンを設定テーブルで管理 | D-008 |
 | 申請 | 1テーブルで種別を持つ。承認済み・却下も履歴として残す | D-010 |
-| ログインID | ＝社員コード。権限はログイン情報に持つ | D-011 |
+| ログインID・権限 | 社員（社員・管理者）はログインID＝社員コード。権限は社員／管理者（上司・部長等）／システム管理者の3種類 | D-011, D-021 |
 | 社員コード | 自動採番（作成年＋通番） | D-013 |
 | 部署 | 部署マスタを別テーブルにする | D-014 |
 | 退職 | 削除せず、利用可否を無効にする | D-015 |
@@ -24,13 +24,13 @@ DDL: [db/schema.sql](./db/schema.sql)（MySQL 8.0.46 で作成と制約の動作
 ```mermaid
 erDiagram
     departments ||--o{ employees : "所属"
-    employees ||--|| login_accounts : "ログインID=社員コード"
+    employees ||--o| login_accounts : "社員は1対1(システム管理者は社員なし)"
     employees ||--o{ attendances : "1日1行"
     employees ||--o{ attendance_requests : "申請者"
     employees ||--o{ attendance_requests : "承認者(reviewer)"
     departments { int id PK }
     employees { varchar employee_code PK }
-    login_accounts { varchar login_id PK_FK }
+    login_accounts { varchar login_id PK }
     attendances { bigint id PK }
     attendance_requests { bigint id PK }
     work_settings { tinyint id PK }
@@ -43,7 +43,7 @@ erDiagram
 | --- | --- |
 | departments | 部署マスタ |
 | employees | 社員（氏名・メール・部署・入社日・退社日） |
-| login_accounts | ログイン情報（ID・パスワードハッシュ・権限・利用可否） |
+| login_accounts | ログイン情報（ID・社員コード・パスワードハッシュ・権限・利用可否） |
 | attendances | 勤怠情報（1社員×1日＝1行） |
 | attendance_requests | 申請＝一時領域（修正・新規登録／残業） |
 | work_settings | 勤務設定（標準始業・終業、昼休憩）。1行のみ |
@@ -66,9 +66,10 @@ erDiagram
 
 | 列 | 型 | NULL | 説明 |
 | --- | --- | --- | --- |
-| login_id | VARCHAR(7) PK, FK→employees | NOT NULL | ログインID（＝社員コード） |
+| login_id | VARCHAR(20) PK | NOT NULL | ログインID。社員・管理者は社員コードと同じ値。システム管理者は任意のID（例：`sysadmin`） |
+| employee_code | VARCHAR(7) UNIQUE, FK→employees | NULL | 社員コード。**システム管理者のみ NULL**（社員ではないため） |
 | password_hash | VARCHAR(255) | NOT NULL | パスワードハッシュ（PHP の `password_hash()` の結果を想定。平文は保存しない） |
-| role | ENUM('employee','admin') | NOT NULL | 権限（社員／管理者） |
+| role | ENUM('employee','manager','system_admin') | NOT NULL | 権限：`employee`＝社員、`manager`＝管理者（上司・部長等。社員なので勤怠データを持つ）、`system_admin`＝システム管理者（会社の最高権限。社員ではない） |
 | is_active | TINYINT(1) | NOT NULL | 利用可否（0＝ログイン不可） |
 | last_login_at | DATETIME | NULL | 最終ログイン日時 |
 | created_at / updated_at | DATETIME | NOT NULL | |
@@ -96,6 +97,7 @@ erDiagram
 | target_date | DATE | NOT NULL | 対象日 |
 | request_type | ENUM('correction','overtime') | NOT NULL | 種別（修正・新規登録／残業） |
 | requested_check_in_at 他4列 | DATETIME | NULL | 申請する時刻（出勤・退勤・休憩開始・休憩終了・残業終了） |
+| original_check_in_at 他4列 | DATETIME | NULL | **申請時点の勤怠の値**（出勤・退勤・休憩開始・休憩終了・残業終了）。承認で勤怠が上書きされても残り、「変更前→申請値」の表示に使う |
 | reason | VARCHAR(500) | NOT NULL | 申請理由 |
 | status | ENUM('pending','approved','rejected') | NOT NULL | 申請中／承認済み／却下 |
 | reviewer_code | VARCHAR(7) FK | NULL | 承認・却下した管理者 |
@@ -123,10 +125,10 @@ erDiagram
 
 | 機能 | 処理 |
 | --- | --- |
-| FR-001 ログイン | `login_accounts` を login_id で取得 → `is_active=1` と `password_verify()` を確認 → `last_login_at` 更新。権限（role）をセッションに保持 |
+| FR-001 ログイン | `login_accounts` を login_id で取得（社員・管理者・システム管理者とも同じ流れ） → `is_active=1` と `password_verify()` を確認 → `last_login_at` 更新。権限（role）をセッションに保持 |
 | FR-003 出退勤 | 当日の行が無ければ INSERT、有れば UPDATE。2回目以降は上書き確認（BR-001）後に UPDATE |
 | FR-004 記録表示 | `attendances` を社員コードと月で絞り込み、`attendance_requests` の pending を重ねて表示 |
-| FR-005/008 申請 | `attendance_requests` に pending で INSERT。一意制約違反を BR-002 のエラーとして扱う |
+| FR-005/008 申請 | `attendance_requests` に pending で INSERT（申請時点の勤怠の値を `original_*` に控える）。一意制約違反を BR-002 のエラーとして扱う |
 | FR-006 承認 | トランザクション内で、勤怠を INSERT … ON DUPLICATE KEY UPDATE で反映 → 申請を approved に更新（reviewer_code・reviewed_at）。却下は rejected とコメントのみ更新 |
 | FR-007 アカウント作成 | トランザクション内で社員コードを採番 → `employees` と `login_accounts` を INSERT |
 
@@ -137,6 +139,18 @@ erDiagram
 - n ≤ 999：`yyyy` ＋ n を3桁ゼロ埋め（例：2026001, 2026999）。
 - n ≥ 1000：m = n − 1000 とし、英字 = `A`＋(m ÷ 99 の商)、数字 = (m ÷ 99 の余り)＋1 を2桁ゼロ埋め（例：1000番目＝2026A01、1099番目＝2026A99、1100番目＝2026B01）。上限は `Z99`（年間3,573人）。
 - 形式の検証：`^[0-9]{4}([0-9]{3}|[A-Z][0-9]{2})$`
+
+### 申請内容の表示（利用者の画面。P-9）
+
+申請ごとに、変更になる項目だけを「変更前 → 申請値」で表示する（`original_*` と `requested_*` を比べて、違う項目のみ）。
+
+| 対象日 | 種別 | 項目 | 変更前 | 申請値 | 状態 | 理由／コメント |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-01 | 修正・新規登録 | 退勤時刻 | 17:30 | 18:45 | 申請中 | 理由：打刻漏れ |
+| 2026-10-02 | 残業 | 残業終了 | （なし） | 20:00 | 却下 | 却下コメント：事前申請が必要 |
+
+- 申請中：現在の勤怠は変わらない。承認後：勤怠が申請値に置き換わる（変更前は `original_*` に残る）。却下：勤怠は変わらない。
+- 新規登録は、変更前がすべて「なし」になる。
 
 ### 労働時間の計算（参考）
 
@@ -149,8 +163,9 @@ erDiagram
 | --- | --- | --- |
 | P-1 | **遅刻・早退はDBに列を持たない**（時刻と標準労働時間の比較で判定） | 時刻から導出でき、列を持つと不整合の元になる。Step4 の遅刻・早退ボタンは作らない |
 | P-2 | **休暇は今回のDBに含めない** | 機能要件に無く、仕様も未確定。必要になったら勤怠情報に「区分」列を追加して拡張する |
-| P-3 | **管理者も社員として `employees` に登録する**（権限は `login_accounts.role`） | 管理者も出退勤するため |
-| P-4 | **修正・新規登録の申請は「その日の4つの時刻の全体」を持つ**（NULL＝空欄にする）。新規かどうかは対象日の勤怠行の有無で決まる | 「一部だけ変更」と「空欄にする」を区別する必要が無く、承認時の反映が単純になる |
+| P-3 | **管理者は2種類に分ける**。①管理者（上司・部長等）＝社員なので `employees` に登録し、勤怠データも持つ（`role='manager'`）。②システム管理者＝会社の最高権限アカウントで社員ではないため `employees` には登録しない（`role='system_admin'`、`employee_code` は NULL） | 依頼者の指示（2026-10-01）。上司・部長等も出退勤するため／システム管理者は社員ではないため |
+| P-4 | **修正・新規登録の申請は「その日の4つの時刻の全体」を保存する**（変更しない項目は現在値のまま、空欄にする項目は NULL）。画面では**変更になる項目だけを表示**する | 承認時の反映が単純。画面は申請時点の値（`original_*`）と申請値（`requested_*`）を比べ、違う項目だけ見せる |
+| P-9 | **利用者の画面で、申請内容を「項目ごとに 変更前→申請値」で確認できるようにする**。申請理由・状態（申請中／承認済み／却下）・却下コメントも表示する | 依頼者の指示（2026-10-01）。そのため申請時点の勤怠の値を `original_*` に保存する |
 | P-5 | **BR-002 の重複判定は「同一社員×対象日×種別の申請中」** | 引継ぎ資料の記述（同一対象日の申請中）を種別単位にした。同じ日の「修正」と「残業」は同時に出せる |
 | P-6 | **残業の承認結果は `attendances.overtime_end_at` に持つ** | 承認で本番に反映する方針（Step4）に沿う |
 | P-7 | **時刻は DATETIME（JST）で保存**し、接続ごとに `SET time_zone='+09:00'` を実行 | BR-004。日跨ぎの勤務にも対応できる |
@@ -163,7 +178,7 @@ erDiagram
 | 子テーブル.列 | → 親テーブル.列 | 意味 |
 | --- | --- | --- |
 | employees.department_id | departments.id | 社員の所属部署 |
-| login_accounts.login_id | employees.employee_code | ログインID＝社員コード（1社員に1ログイン情報） |
+| login_accounts.employee_code | employees.employee_code | 社員のログイン情報（1社員に1つ。システム管理者は NULL で対象外） |
 | attendances.employee_code | employees.employee_code | 勤怠の持ち主 |
 | attendance_requests.employee_code | employees.employee_code | 申請者 |
 | attendance_requests.reviewer_code | employees.employee_code | 承認・却下した管理者 |
