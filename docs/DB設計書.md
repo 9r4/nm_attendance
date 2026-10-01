@@ -29,12 +29,12 @@ erDiagram
     employees ||--o{ attendance_requests : "申請者"
     employees ||--o{ attendance_requests : "承認者(reviewer)"
     departments { int id PK }
-    employees { varchar employee_code PK }
+    employees { varchar employee_id PK }
     login_accounts { varchar login_id PK }
     attendances { bigint id PK }
     attendance_requests { bigint id PK }
     work_settings { tinyint id PK }
-    employee_code_sequences { smallint year PK }
+    employee_id_sequences { smallint year PK }
 ```
 
 ## 3. テーブル一覧
@@ -47,13 +47,15 @@ erDiagram
 | attendances | 勤怠情報（1社員×1日＝1行） |
 | attendance_requests | 申請＝一時領域（修正・新規登録／残業） |
 | work_settings | 勤務設定（標準始業・終業、昼休憩）。1行のみ |
-| employee_code_sequences | 社員コード採番用の年別カウンタ |
+| employee_id_sequences | 社員コード採番用の年別カウンタ |
 
 ### 3-1. employees
 
+> **列名の変更（2026-10-01、D-040）**：社員を指す列は、すべて `employee_id`（旧 `employee_code`）。承認者は `reviewer_id`（旧 `reviewer_code`）。値は**社員コード（文字列。例：`2026001`、`2026A01`）**で、数値ではない。PHP で SQL に渡すときは `PDO::PARAM_STR` を使う（`PDO::PARAM_INT` にすると、`2026A01` のような値が壊れる）。
+
 | 列 | 型 | NULL | 説明 |
 | --- | --- | --- | --- |
-| employee_code | VARCHAR(7) PK | NOT NULL | 社員コード（例：2026001, 2026A01）。重複不可 |
+| employee_id | VARCHAR(7) PK | NOT NULL | 社員コード（例：2026001, 2026A01）。重複不可 |
 | name | VARCHAR(100) | NOT NULL | 氏名 |
 | email | VARCHAR(254) UNIQUE | NOT NULL | メールアドレス |
 | department_id | INT FK→departments | NOT NULL | 部署 |
@@ -67,7 +69,7 @@ erDiagram
 | 列 | 型 | NULL | 説明 |
 | --- | --- | --- | --- |
 | login_id | VARCHAR(20) PK | NOT NULL | ログインID。社員・管理者は社員コードと同じ値。システム管理者は任意のID（例：`sysadmin`） |
-| employee_code | VARCHAR(7) UNIQUE, FK→employees | NULL | 社員コード。**システム管理者のみ NULL**（社員ではないため） |
+| employee_id | VARCHAR(7) UNIQUE, FK→employees | NULL | 社員コード。**システム管理者のみ NULL**（社員ではないため） |
 | password_hash | VARCHAR(255) | NOT NULL | パスワードハッシュ（PHP の `password_hash()` の結果を想定。平文は保存しない） |
 | approval_scope | ENUM('department','all') | NOT NULL | 承認できる範囲（`manager` のみ使用）。`department`＝自分の所属部署の社員の申請のみ（初期値）、`all`＝全社員の申請（総合部長などの幹部層） |
 | role | ENUM('employee','manager','system_admin') | NOT NULL | 権限：`employee`＝社員、`manager`＝管理者（上司・部長等。社員なので勤怠データを持つ）、`system_admin`＝システム管理者（会社の最高権限。社員ではない） |
@@ -80,8 +82,8 @@ erDiagram
 | 列 | 型 | NULL | 説明 |
 | --- | --- | --- | --- |
 | id | BIGINT PK | NOT NULL | |
-| employee_code | VARCHAR(7) FK | NOT NULL | 社員コード |
-| work_date | DATE | NOT NULL | 勤務日。**(employee_code, work_date) で一意**（BR-005） |
+| employee_id | VARCHAR(7) FK | NOT NULL | 社員コード |
+| work_date | DATE | NOT NULL | 勤務日。**(employee_id, work_date) で一意**（BR-005） |
 | check_in_at | DATETIME | NULL | 出勤時刻 |
 | check_out_at | DATETIME | NULL | 退勤時刻 |
 | break_start_at | DATETIME | NULL | 休憩開始（昼休憩とは別） |
@@ -94,20 +96,20 @@ erDiagram
 | 列 | 型 | NULL | 説明 |
 | --- | --- | --- | --- |
 | id | BIGINT PK | NOT NULL | |
-| employee_code | VARCHAR(7) FK | NOT NULL | 申請者 |
+| employee_id | VARCHAR(7) FK | NOT NULL | 申請者 |
 | target_date | DATE | NOT NULL | 対象日 |
 | request_type | ENUM('correction','overtime') | NOT NULL | 種別（修正・新規登録／残業） |
 | requested_check_in_at 他4列 | DATETIME | NULL | 申請する時刻（出勤・退勤・休憩開始・休憩終了・残業終了） |
 | original_check_in_at 他4列 | DATETIME | NULL | **申請時点の勤怠の値**（出勤・退勤・休憩開始・休憩終了・残業終了）。承認で勤怠が上書きされても残り、「変更前→申請値」の表示に使う |
 | reason | VARCHAR(500) | NOT NULL | 申請理由 |
 | status | ENUM('pending','approved','rejected') | NOT NULL | 申請中／承認済み／却下 |
-| reviewer_code | VARCHAR(7) FK | NULL | 承認・却下した管理者 |
+| reviewer_id | VARCHAR(7) FK | NULL | 承認・却下した管理者 |
 | review_comment | VARCHAR(500) | NULL | 却下コメント（任意） |
 | reviewed_at | DATETIME | NULL | 承認・却下日時 |
 | pending_key | 生成列 | NULL | status='pending' のとき 1、それ以外は NULL。BR-002 の制御用 |
 | created_at / updated_at | DATETIME | NOT NULL | 申請日時など |
 
-**BR-002（同じ申請の重複不可）の実現方法**：`UNIQUE (employee_code, target_date, request_type, pending_key)`。申請中のものだけが `pending_key=1` になって一意制約の対象になり、承認済み・却下の履歴は何件あっても残せる。別日の申請は問題ない。
+**BR-002（同じ申請の重複不可）の実現方法**：`UNIQUE (employee_id, target_date, request_type, pending_key)`。申請中のものだけが `pending_key=1` になって一意制約の対象になり、承認済み・却下の履歴は何件あっても残せる。別日の申請は問題ない。
 
 ### 3-5. work_settings（1行のみ・id=1）
 
@@ -117,10 +119,10 @@ erDiagram
 | standard_end | 18:00 | 標準終業。簡単残業申請の基準 |
 | lunch_start / lunch_end | 12:00 / 13:00 | 昼休憩。労働時間の計算で自動控除（D-009） |
 
-### 3-6. departments / employee_code_sequences
+### 3-6. departments / employee_id_sequences
 
 - departments：`id`, `name`（一意）, `is_active`, `created_at`, `updated_at`
-- employee_code_sequences：`year`（PK）, `last_number`
+- employee_id_sequences：`year`（PK）, `last_number`
 
 ## 4. 主要な処理とテーブルの対応
 
@@ -130,7 +132,7 @@ erDiagram
 | FR-003 出退勤 | 当日の行が無ければ INSERT、有れば UPDATE。2回目以降は上書き確認（BR-001）後に UPDATE |
 | FR-004 記録表示 | `attendances` を社員コードと月で絞り込み、`attendance_requests` の pending を重ねて表示 |
 | FR-005/008 申請 | `attendance_requests` に pending で INSERT（申請時点の勤怠の値を `original_*` に控える）。一意制約違反を BR-002 のエラーとして扱う |
-| FR-006 承認 | 承認できるのは `manager` のみ。申請者が承認者の承認範囲に入っているか確認（`approval_scope='department'` なら申請者の `department_id` が自分と同じ、`all` なら全社員）。自分の申請は承認不可（DBのCHECKでも防止）。トランザクション内で、勤怠を INSERT … ON DUPLICATE KEY UPDATE で反映 → 申請を approved に更新（reviewer_code・reviewed_at）。却下は rejected とコメントのみ更新 |
+| FR-006 承認 | 承認できるのは `manager` のみ。申請者が承認者の承認範囲に入っているか確認（`approval_scope='department'` なら申請者の `department_id` が自分と同じ、`all` なら全社員）。自分の申請は承認不可（DBのCHECKでも防止）。トランザクション内で、勤怠を INSERT … ON DUPLICATE KEY UPDATE で反映 → 申請を approved に更新（reviewer_id・reviewed_at）。却下は rejected とコメントのみ更新 |
 | FR-007 アカウント作成 | システム管理者のみ。トランザクション内で社員コードを採番 → `employees` と `login_accounts` を INSERT |
 
 ### 権限（D-021, D-024, D-025）
@@ -150,7 +152,7 @@ erDiagram
 ### 社員コードの採番ルール（D-013）
 
 - 形式：作成年4桁＋3桁の通番。年が変わると通番は 001 から。
-- `employee_code_sequences` の当年の行を `SELECT … FOR UPDATE` で確保し、`last_number` を +1 して n とする（同時作成でも重複しない）。
+- `employee_id_sequences` の当年の行を `SELECT … FOR UPDATE` で確保し、`last_number` を +1 して n とする（同時作成でも重複しない）。
 - n ≤ 999：`yyyy` ＋ n を3桁ゼロ埋め（例：2026001, 2026999）。
 - n ≥ 1000：m = n − 1000 とし、英字 = `A`＋(m ÷ 99 の商)、数字 = (m ÷ 99 の余り)＋1 を2桁ゼロ埋め（例：1000番目＝2026A01、1099番目＝2026A99、1100番目＝2026B01）。上限は `Z99`（年間3,573人）。
 - 形式の検証：`^[0-9]{4}([0-9]{3}|[A-Z][0-9]{2})$`
@@ -178,7 +180,7 @@ erDiagram
 | --- | --- | --- |
 | P-1 | **遅刻・早退はDBに列を持たない**（時刻と標準労働時間の比較で判定） | 時刻から導出でき、列を持つと不整合の元になる。Step4 の遅刻・早退ボタンは作らない |
 | P-2 | **休暇は今回のDBに含めない** | 機能要件に無く、仕様も未確定。必要になったら勤怠情報に「区分」列を追加して拡張する |
-| P-3 | **管理者は2種類に分ける**。①管理者（上司・部長等）＝社員なので `employees` に登録し、勤怠データも持つ（`role='manager'`）。②システム管理者＝会社の最高権限アカウントで社員ではないため `employees` には登録しない（`role='system_admin'`、`employee_code` は NULL） | 依頼者の指示（2026-10-01）。上司・部長等も出退勤するため／システム管理者は社員ではないため |
+| P-3 | **管理者は2種類に分ける**。①管理者（上司・部長等）＝社員なので `employees` に登録し、勤怠データも持つ（`role='manager'`）。②システム管理者＝会社の最高権限アカウントで社員ではないため `employees` には登録しない（`role='system_admin'`、`employee_id` は NULL） | 依頼者の指示（2026-10-01）。上司・部長等も出退勤するため／システム管理者は社員ではないため |
 | P-4 | **修正・新規登録の申請は「その日の4つの時刻の全体」を保存する**（変更しない項目は現在値のまま、空欄にする項目は NULL）。画面では**変更になる項目だけを表示**する | 承認時の反映が単純。画面は申請時点の値（`original_*`）と申請値（`requested_*`）を比べ、違う項目だけ見せる |
 | P-9 | **利用者の画面で、申請内容を「項目ごとに 変更前→申請値」で確認できるようにする**。申請理由・状態（申請中／承認済み／却下）・却下コメントも表示する | 依頼者の指示（2026-10-01）。そのため申請時点の勤怠の値を `original_*` に保存する |
 | P-5 | **BR-002 の重複判定は「同一社員×対象日×種別の申請中」** | 引継ぎ資料の記述（同一対象日の申請中）を種別単位にした。同じ日の「修正」と「残業」は同時に出せる |
@@ -193,10 +195,10 @@ erDiagram
 | 子テーブル.列 | → 親テーブル.列 | 意味 |
 | --- | --- | --- |
 | employees.department_id | departments.id | 社員の所属部署 |
-| attendance_requests.reviewer_code | employees.employee_code | 承認・却下した管理者（`manager`）。申請者本人は不可 |
-| login_accounts.employee_code | employees.employee_code | 社員のログイン情報（1社員に1つ。システム管理者は NULL で対象外） |
-| attendances.employee_code | employees.employee_code | 勤怠の持ち主 |
-| attendance_requests.employee_code | employees.employee_code | 申請者 |
+| attendance_requests.reviewer_id | employees.employee_id | 承認・却下した管理者（`manager`）。申請者本人は不可 |
+| login_accounts.employee_id | employees.employee_id | 社員のログイン情報（1社員に1つ。システム管理者は NULL で対象外） |
+| attendances.employee_id | employees.employee_id | 勤怠の持ち主 |
+| attendance_requests.employee_id | employees.employee_id | 申請者 |
 
 在籍状態の更新（退職時）は、`employment_status`・`left_on`・`login_accounts.is_active=0` を同一トランザクションで更新する。
 

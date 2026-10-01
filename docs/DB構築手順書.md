@@ -5,7 +5,7 @@
 - DB名：`attendance_training`（作成済み）
 - ユーザー：`attendance_app@localhost`（作成済み）
 - MySQL：8.4.11
-- 対象：7テーブル（departments, employee_code_sequences, employees, login_accounts, attendances, attendance_requests, work_settings）
+- 対象：7テーブル（departments, employee_id_sequences, employees, login_accounts, attendances, attendance_requests, work_settings）
 
 ## 前提（先に済ませておくこと）
 
@@ -95,7 +95,7 @@ SHOW TABLES;
 attendance_requests
 attendances
 departments
-employee_code_sequences
+employee_id_sequences
 employees
 login_accounts
 work_settings
@@ -161,7 +161,7 @@ mysql -u attendance_app -p
 
 ```sql
 USE attendance_training;
-INSERT INTO login_accounts (login_id, employee_code, password_hash, role) VALUES ('sysadmin', NULL, '＜コピーしたハッシュ＞', 'system_admin');
+INSERT INTO login_accounts (login_id, employee_id, password_hash, role) VALUES ('sysadmin', NULL, '＜コピーしたハッシュ＞', 'system_admin');
 ```
 
 確認（ハッシュは表示しない）：
@@ -169,14 +169,14 @@ INSERT INTO login_accounts (login_id, employee_code, password_hash, role) VALUES
 **【mysql 内で実行】**
 
 ```sql
-SELECT login_id, employee_code, role, is_active FROM login_accounts;
+SELECT login_id, employee_id, role, is_active FROM login_accounts;
 ```
 
 **【出力例（入力しない）】**
 
 ```
 +----------+---------------+--------------+-----------+
-| login_id | employee_code | role         | is_active |
+| login_id | employee_id | role         | is_active |
 +----------+---------------+--------------+-----------+
 | sysadmin | NULL          | system_admin |         1 |
 +----------+---------------+--------------+-----------+
@@ -192,12 +192,76 @@ SELECT login_id, employee_code, role, is_active FROM login_accounts;
 
 ```sql
 USE attendance_training;
-DROP TABLE attendance_requests, attendances, login_accounts, employee_code_sequences, work_settings, employees, departments;
+DROP TABLE attendance_requests, attendances, login_accounts, employee_id_sequences, work_settings, employees, departments;
 ```
 
 その後、「0-2」の一時ファイルの取り出しからやり直す。
 
-## 4. よくある失敗
+## 4. すでに構築済みのDBを、列名の変更（2026-10-01）に合わせて更新する
+
+2026-10-01 に、列名とテーブル名を変更した（`employee_code`→`employee_id`、`reviewer_code`→`reviewer_id`、`employee_code_sequences`→`employee_id_sequences`。決定事項 D-040）。**変更前の DB設計でテーブルを作成済みの場合**は、データを残したまま、次の手順で更新する（変更後の DB設計で、初めて作成する場合は不要）。
+
+### 4-1. 移行用の SQL を一時ファイルに取り出す（ターミナルで）
+
+**【ターミナルで実行】**
+
+```bash
+cd /var/www/html/attendance
+git fetch origin
+git show origin/main:docs/db/migrations/2026-10-01_employee_code_to_employee_id.sql > /tmp/migration.sql
+head -3 /tmp/migration.sql
+```
+
+先頭に `-- 列名・テーブル名の変更（2026-10-01、決定事項 D-040）` と表示されれば OK。
+
+### 4-2. 適用する（mysql に入って）
+
+**【ターミナルで実行】**
+
+```bash
+mysql -u attendance_app -p
+```
+
+**【mysql 内で実行】**
+
+```sql
+USE attendance_training;
+SOURCE /tmp/migration.sql
+```
+
+`ERROR` が出なければ成功。**1回だけ実行する**（2回目は、すでに改名済みのためエラーになる）。確認する。
+
+**【mysql 内で実行】**
+
+```sql
+SHOW TABLES;
+SELECT login_id, employee_id, role FROM login_accounts;
+```
+
+**【出力例（入力しない）】**
+
+```
+employee_id_sequences ほか（`employee_code_sequences` が無く、`employee_id_sequences` がある）
+sysadmin | NULL | system_admin
+```
+
+mysql から出て、一時ファイルを削除する。
+
+**【mysql 内で実行】**
+
+```sql
+exit
+```
+
+**【ターミナルで実行】**
+
+```bash
+rm /tmp/migration.sql
+```
+
+> 移行 SQL が失敗した場合（途中でエラー）は、開発中でデータが無ければ、「3. やり直したい場合」のとおり、`DROP TABLE` 文の**テーブル名を変更前の名前**（`employee_code_sequences`）にして実行し、「1. テーブルの作成」「2. 最初のシステム管理者の登録」をやり直す。
+
+## 5. よくある失敗
 
 | 症状 | 原因・対処 |
 | --- | --- |
@@ -205,6 +269,6 @@ DROP TABLE attendance_requests, attendances, login_accounts, employee_code_seque
 | `ERROR 1044 ... Access denied ... to database` | 権限不足。0-1 の権限を確認する（MySQL の管理者が `GRANT` を追加する） |
 | `ERROR 1046 (3D000): No database selected` | `USE attendance_training;` を実行していない |
 | `Table '...' already exists` | すでに作成済み。中身を作り直すなら「3. やり直し」を実行する |
-| `Check constraint ... is violated` | `login_accounts` の権限と社員コードの組み合わせが誤り。システム管理者は `employee_code` を NULL、社員・管理者は社員コードとログインIDを同じにする |
+| `Check constraint ... is violated` | `login_accounts` の権限と社員コードの組み合わせが誤り。システム管理者は `employee_id` を NULL、社員・管理者は社員コードとログインIDを同じにする |
 | `SOURCE` で `Failed to open file` | `/tmp/schema.sql` が無い。0-2 を実行する（mysql の外で） |
 | `git show` で `fatal: ambiguous argument 'origin/main'` | `git fetch origin` を実行していない |
