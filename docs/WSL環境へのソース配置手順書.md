@@ -7,14 +7,16 @@ WSL(Ubuntu) の `/var/www/html/attendance` に、GitHub のソースを配置・
 - ブランチ: `main`（常に最新版。WSLには `main` だけを配置する。作業ブランチは取り込まない）
 - **WSL側に `docs/` と `CLAUDE.md` は不要** → `sparse-checkout` で除外する
 
-> 以降のコマンドは、WSL の Ubuntu ターミナルで実行する。`$` はプロンプトなので入力しない。
+> 以降のコマンドは、WSL の Ubuntu ターミナルで実行する。コードブロックの中身は、そのままコピーして貼り付けられる（プロンプトの `$` は書いていない）。実行結果の見本は **【出力例（入力しない）】** と表示している。
 
 ## 0. 事前準備（初回のみ）
 
 ### 0-1. git の確認
 
+**【ターミナルで実行】**
+
 ```bash
-$ git --version
+git --version
 ```
 
 表示されなければ `sudo apt update && sudo apt install -y git` で入れる。
@@ -40,31 +42,39 @@ $ git --version
 
 `/var/www/html` は通常 root 所有のため、自分のユーザーが書き込めるようにする。
 
+**【ターミナルで実行】**
+
 ```bash
-$ sudo mkdir -p /var/www/html/attendance
-$ sudo chown -R $USER:$USER /var/www/html/attendance
+sudo mkdir -p /var/www/html/attendance
+sudo chown -R $USER:$USER /var/www/html/attendance
 ```
 
 > すでに `/var/www/html/attendance` に何かファイルがある場合、clone に失敗する。中身が不要なら `rm -rf /var/www/html/attendance/*` で空にするか、別名に退避してから実行する。
 
 ### 1-2. clone（docs と CLAUDE.md を除外）
 
+**【ターミナルで実行】**
+
 ```bash
-$ git clone --no-checkout https://github.com/9r4/nm_attendance.git /var/www/html/attendance
-$ cd /var/www/html/attendance
-$ git sparse-checkout set --no-cone '/*' '!/docs/' '!/CLAUDE.md'
-$ git checkout main
+git clone --no-checkout https://github.com/9r4/nm_attendance.git /var/www/html/attendance
+cd /var/www/html/attendance
+git sparse-checkout set --no-cone '/*' '!/docs/' '!/CLAUDE.md'
+git checkout main
 ```
 
 SSH を使う場合は、1行目の URL を `git@github.com:9r4/nm_attendance.git` に置き換える。
 
 ### 1-3. 配置結果の確認
 
+**【ターミナルで実行】**
+
 ```bash
-$ ls -A /var/www/html/attendance
+ls -A /var/www/html/attendance
 ```
 
 次のようになっていれば成功。`docs/` と `CLAUDE.md` が**無い**こと。
+
+**【出力例（入力しない）】**
 
 ```
 .git  admin_submit.html  calendar.html  css  index.html  js  login.html
@@ -74,9 +84,11 @@ $ ls -A /var/www/html/attendance
 
 依頼者が PR をスカッシュマージした後、次を実行する。
 
+**【ターミナルで実行】**
+
 ```bash
-$ cd /var/www/html/attendance
-$ git pull
+cd /var/www/html/attendance
+git pull
 ```
 
 - `docs/` の更新は取り込まれない（除外設定が維持される）。
@@ -91,8 +103,10 @@ Apache などのWebサーバが起動している場合は、ブラウザで次�
 
 Webサーバが未設定の場合は、静的ファイルだけ確認するなら次でも試せる（Python が入っている場合）。
 
+**【ターミナルで実行】**
+
 ```bash
-$ cd /var/www/html/attendance && python3 -m http.server 8000
+cd /var/www/html/attendance && python3 -m http.server 8000
 # ブラウザ: http://localhost:8000/index.html
 ```
 

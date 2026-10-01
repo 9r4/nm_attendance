@@ -9,18 +9,16 @@
 
 ## 表記のルール
 
-| プロンプト | 意味 |
+コードブロックの直前の見出しで、**実行する場所**を区別する。コードブロックの中身は、**そのままコピーして貼り付けられる**（プロンプトの `$` や `mysql>` は書いていない）。
+
+| 見出し | 意味 |
 | --- | --- |
-| `$` | **ターミナル（シェル）** で実行する |
-| `mysql>` | **mysql にログインした状態**（`mysql -u attendance_app -p` で入った後）で実行する |
+| **【ターミナルで実行】** | WSL のターミナル（シェル）に貼り付けて実行する |
+| **【mysql 内で実行】** | `mysql -u attendance_app -p` で mysql にログインした状態で貼り付けて実行する（`mysql>` の入力待ちの状態） |
+| **【出力例（入力しない）】** | 実行結果の見本。入力するものではない |
 
-- 入力するのは `$` や `mysql>` の**右側だけ**。
-- `mysql>` の SQL は、末尾の `;` までが1つの命令。
-- 以降の手順で「mysql に入る」と書いてあるところは、次のコマンドで入る。出るときは `exit` を入力する。
-
-```bash
-$ mysql -u attendance_app -p
-```
+- mysql に入るコマンドは `mysql -u attendance_app -p`（パスワードを聞かれる）。出るときは `exit`。
+- SQL は、末尾の `;` までが1つの命令。複数行をまとめて貼り付けてもよい。
 
 > **WSL のソース配置先 `/var/www/html/attendance` には `docs/` が無い**（sparse-checkout で除外）。そのため、SQL は `git show` でリポジトリから一時ファイルに取り出し、mysql の `SOURCE` で流す（SQL ファイルを Web から見える場所に置かない）。
 
@@ -28,9 +26,11 @@ $ mysql -u attendance_app -p
 
 ### 0-1. DB と権限の確認（mysql に入って）
 
+**【mysql 内で実行】**
+
 ```sql
-mysql> SHOW DATABASES LIKE 'attendance_training';
-mysql> SHOW GRANTS;
+SHOW DATABASES LIKE 'attendance_training';
+SHOW GRANTS;
 ```
 
 - `attendance_training` が表示されること。
@@ -40,11 +40,13 @@ mysql> SHOW GRANTS;
 
 mysql から出ている状態（`exit` 済み）で実行する。
 
+**【ターミナルで実行】**
+
 ```bash
-$ cd /var/www/html/attendance
-$ git fetch origin
-$ git show origin/main:docs/db/schema.sql > /tmp/schema.sql
-$ head -3 /tmp/schema.sql
+cd /var/www/html/attendance
+git fetch origin
+git show origin/main:docs/db/schema.sql > /tmp/schema.sql
+head -3 /tmp/schema.sql
 ```
 
 先頭に `-- 勤怠管理システム スキーマ（…確定…）` と表示されれば OK。
@@ -53,20 +55,28 @@ $ head -3 /tmp/schema.sql
 
 mysql に入って実行する。
 
+**【ターミナルで実行】**
+
 ```bash
-$ mysql -u attendance_app -p
+mysql -u attendance_app -p
 ```
 
+**【mysql 内で実行】**
+
 ```sql
-mysql> USE attendance_training;
-mysql> SOURCE /tmp/schema.sql
+USE attendance_training;
+SOURCE /tmp/schema.sql
 ```
 
 `Query OK` が何行か表示され、`ERROR` が出なければ成功。7テーブルできていることを確認する。
 
+**【mysql 内で実行】**
+
 ```sql
-mysql> SHOW TABLES;
+SHOW TABLES;
 ```
+
+**【出力例（入力しない）】**
 
 ```
 attendance_requests
@@ -80,18 +90,24 @@ work_settings
 
 勤務設定の初期値（始業9:00・終業18:00・昼休憩12:00〜13:00）も、`schema.sql` の最後で登録される。
 
+**【mysql 内で実行】**
+
 ```sql
-mysql> SELECT * FROM work_settings;
+SELECT * FROM work_settings;
 ```
 
 確認できたら mysql から出て、一時ファイルを削除する。
 
+**【mysql 内で実行】**
+
 ```sql
-mysql> exit
+exit
 ```
 
+**【ターミナルで実行】**
+
 ```bash
-$ rm /tmp/schema.sql
+rm /tmp/schema.sql
 ```
 
 ## 2. 最初のシステム管理者の登録
@@ -102,31 +118,48 @@ $ rm /tmp/schema.sql
 
 PHP の CLI が必要（`php -v` で確認。無ければ `sudo apt install -y php-cli`）。パスワードは画面に表示されず、シェルの履歴にも残らないように入力する。
 
+**【ターミナルで実行】**
+
 ```bash
-$ read -s -p "システム管理者のパスワード: " PW; echo
-$ php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT), "\n";' "$PW"; unset PW
+read -s -p "システム管理者のパスワード: " PW; echo
+```
+
+パスワードを入力して Enter を押す（入力中は表示されない）。続けて、次のコマンドでハッシュを表示する。**上のコマンドと一緒に貼り付けないこと**（`read` が次の行をパスワードとして読み込んでしまうため、1行ずつ実行する）。
+
+**【ターミナルで実行】**
+
+```bash
+php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT), "\n";' "$PW"; unset PW
 ```
 
 `$2y$10$…` で始まる60文字前後の文字列が1行表示される。**この1行をコピーしておく**（パスワード自体ではなくハッシュなので、画面に出してよい）。
 
 ### 2-2. 登録する（mysql に入って）
 
+**【ターミナルで実行】**
+
 ```bash
-$ mysql -u attendance_app -p
+mysql -u attendance_app -p
 ```
 
 ログインIDは `sysadmin` とする例（変更してよい。20文字以内の英数字）。`＜コピーしたハッシュ＞` を、2-1 でコピーした1行に置き換える（シングルクォート `'` は残す）。
 
+**【mysql 内で実行】**
+
 ```sql
-mysql> USE attendance_training;
-mysql> INSERT INTO login_accounts (login_id, employee_code, password_hash, role) VALUES ('sysadmin', NULL, '＜コピーしたハッシュ＞', 'system_admin');
+USE attendance_training;
+INSERT INTO login_accounts (login_id, employee_code, password_hash, role) VALUES ('sysadmin', NULL, '＜コピーしたハッシュ＞', 'system_admin');
 ```
 
 確認（ハッシュは表示しない）：
 
+**【mysql 内で実行】**
+
 ```sql
-mysql> SELECT login_id, employee_code, role, is_active FROM login_accounts;
+SELECT login_id, employee_code, role, is_active FROM login_accounts;
 ```
+
+**【出力例（入力しない）】**
 
 ```
 +----------+---------------+--------------+-----------+
@@ -142,9 +175,11 @@ mysql> SELECT login_id, employee_code, role, is_active FROM login_accounts;
 
 **本番データがある場合は絶対に実行しない。** mysql に入って、子テーブルから順に削除する（この順序なら外部キーのエラーが出ない）。
 
+**【mysql 内で実行】**
+
 ```sql
-mysql> USE attendance_training;
-mysql> DROP TABLE attendance_requests, attendances, login_accounts, employee_code_sequences, work_settings, employees, departments;
+USE attendance_training;
+DROP TABLE attendance_requests, attendances, login_accounts, employee_code_sequences, work_settings, employees, departments;
 ```
 
 その後、「0-2」の一時ファイルの取り出しからやり直す。
