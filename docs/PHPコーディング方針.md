@@ -29,7 +29,6 @@
 - `dbconnect.php`（PDO の接続）、`functions.php`（`h()`）という名前と役割。
 - 名前付きプレースホルダ＋`bindParam`（型を明示）＋`execute()` の流れ。
 - `fetchAll()` と `fetch()` の使い分け。
-- 画面ごとに PHP ファイルを分ける構成と、更新後に `header('Location: …'); exit;` で戻る形。
 - 画面の `<?= h(…) ?>` による出力。
 
 ### 3-2. 既存コードから変える点（本プロジェクトの要件のため）
@@ -42,9 +41,17 @@
 | 接続時に `SET time_zone = '+09:00'` を実行する | 時刻はすべて日本時間（BR-004） |
 | 削除や承認などの更新は **POST＋CSRF トークン**で行う（既存コードの `delete.php?id=…` のような GET は使わない） | GET のリンクだけで更新できると、外部のページから勝手に実行される危険があるため |
 | `$_POST` を受け取ったら、**サーバー側で検証してから** SQL に渡す。権限と承認範囲も毎回確認する | 引継ぎ資料の注意点と、BR-003（ログイン済みのみ） |
+| **エラー処理を共通化する**。想定外の例外は、共通のエラー処理（`src/errors.php`）で、`error_log()` に記録し、画面には定型の文（HTTP 500）を出す。`display_errors` は無効にする。個別の `try catch` は、**エラーの種類ごとに画面の対応が必要な箇所**（例：一意制約違反＝重複登録）と、トランザクションに限る | 既存コードの一覧・登録には `try catch` が無く、SQL が失敗すると PHP 標準のエラー（内部情報を含みうる）が出るため。すべての SQL を個別に `try catch` で囲むと、コードが冗長になり、握りつぶしの原因になる |
 | 承認など、複数の更新を1つにまとめる処理は、`beginTransaction()`／`commit()`／`rollBack()` で囲む | 途中で失敗したとき、半端な状態にしないため |
 | `SELECT *` ではなく、必要な列を書く（任意） | 列が増えても、画面や処理が影響を受けにくい |
 | `created_at`・`updated_at` は、DB 側の既定値（`CURRENT_TIMESTAMP`／`ON UPDATE`）に任せる | DB設計書（確定）のとおり。SQL に `now()` を書かなくてよい |
+
+### 3-3. このプロジェクトでの要否を判断した点（依頼者の指示：既存コードのままではなく、要否を判断する）
+
+| 既存コードの書き方 | このプロジェクトでの判断（案） |
+| --- | --- |
+| 更新後に `header('Location: …'); exit;` で別の画面へ戻る（画面遷移） | **形は必要、遷移先は画面ごとに決める**。POST のあとにリダイレクトする形（二重送信の防止）は、申請・承認・アカウント作成などの画面で必要。ただし、遷移先は「一覧」とは限らず（例：申請後は記録表示に完了メッセージ付きで戻る、アカウント作成後は同じ画面に留まる）、**画面設計（画面遷移）で決める**。出退勤・休憩のように JavaScript から API（JSON）を呼ぶ操作は、リダイレクトしない（JSON を返し、画面を書き換える） |
+| 画面・処理ごとに PHP ファイルを分ける（`createForm.php`、`create.php`、`editForm.php`、`update.php`、`delete.php`） | **そのままは採用しない**。本プロジェクトの画面は少なく（ログイン・メイン・記録表示・承認・アカウント管理）、操作ごとにファイルを分けると数が増える。**画面ごとに1つの PHP が、表示（GET）と更新（POST）を処理する**形にする。ファイルが増える場合は、機能ごとのフォルダに整理する（[技術方針.md](./技術方針.md) 2-1）。`index.php` はリポジトリ直下に置く |
 
 > `bindParam` は変数を**参照**で結びつける。`execute()` の前に変数の値が変わると、変わった値が使われる。`bindParam` には必ず変数を渡し、定数や式を直接渡す場合は `bindValue` を使う。
 
@@ -64,10 +71,28 @@ return [
 ];
 ```
 
+**ファイル：`src/errors.php`**（共通のエラー処理。想定外の例外を、記録して定型の文を出す）
+
+```php
+<?php
+ini_set('display_errors', '0');
+
+set_exception_handler(function (\Throwable $e) {
+    error_log($e);
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: text/plain; charset=UTF-8');
+    }
+    exit('エラーが発生しました。時間をおいて、もう一度お試しください。');
+});
+```
+
 **ファイル：`src/dbconnect.php`**
 
 ```php
 <?php
+include_once(__DIR__ . '/errors.php');
+
 $config = require('/var/www/attendance_private/config.php');
 
 try {
@@ -131,6 +156,33 @@ $sql = "INSERT INTO departments(name) VALUES(:name)";
 $stmt = $pdo->prepare($sql);
 $stmt->bindParam(':name', $name, PDO::PARAM_STR);
 $stmt->execute();
+
+header('Location: ./departments.php');
+exit;
+```
+
+**ファイル：`departmentCreateSafe.php`**（上の登録に、重複の対応を加えた例。エラーの種類ごとに画面の対応が必要なときだけ、`try catch` を書く）
+
+```php
+<?php
+include_once(__DIR__ . '/src/dbconnect.php');
+
+$name = $_POST['name'];
+
+$sql = "INSERT INTO departments(name) VALUES(:name)";
+$stmt = $pdo->prepare($sql);
+$stmt->bindParam(':name', $name, PDO::PARAM_STR);
+
+try {
+    $stmt->execute();
+} catch (\PDOException $e) {
+    if ($e->errorInfo[1] === 1062) {
+        // 一意制約違反（同じ名前の部署がすでにある）。画面にエラーを出して戻る
+        header('Location: ./departments.php?error=duplicate');
+        exit;
+    }
+    throw $e;
+}
 
 header('Location: ./departments.php');
 exit;
