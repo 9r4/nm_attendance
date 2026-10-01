@@ -1,5 +1,5 @@
 -- 勤怠管理システム スキーマ案（承認待ち）
--- 対象: MySQL（InnoDB / utf8mb4）。時刻は日本時間(JST)で保持する（BR-004）。
+-- 対象: MySQL 8.4（InnoDB / utf8mb4）。時刻は日本時間(JST)で保持する（BR-004）。
 -- 接続時に `SET time_zone = '+09:00'` を実行すること。
 
 SET NAMES utf8mb4;
@@ -28,8 +28,9 @@ CREATE TABLE employees (
   name           VARCHAR(100) NOT NULL COMMENT '氏名',
   email          VARCHAR(254) NOT NULL COMMENT 'メールアドレス',
   department_id  INT UNSIGNED NOT NULL COMMENT '部署ID',
-  hire_date      DATE         NOT NULL COMMENT '入社日',
+  joined_on      DATE         NOT NULL COMMENT '入社日',
   leave_date     DATE         NULL     COMMENT '退社日(在籍中はNULL)',
+  employment_status VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT '在籍状態(active=在籍)',
   created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (employee_code),
@@ -52,12 +53,12 @@ CREATE TABLE login_accounts (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='ログイン情報';
 
 -- 勤怠情報（1社員×1日＝1行。BR-005）
-CREATE TABLE attendance_records (
+CREATE TABLE attendances (
   id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   employee_code  VARCHAR(7)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '社員コード',
   work_date      DATE         NOT NULL COMMENT '勤務日',
-  clock_in_at    DATETIME     NULL COMMENT '出勤時刻',
-  clock_out_at   DATETIME     NULL COMMENT '退勤時刻',
+  check_in_at    DATETIME     NULL COMMENT '出勤時刻',
+  check_out_at   DATETIME     NULL COMMENT '退勤時刻',
   break_start_at DATETIME     NULL COMMENT '休憩開始(昼休憩とは別。1日1回)',
   break_end_at   DATETIME     NULL COMMENT '休憩終了',
   overtime_end_at DATETIME    NULL COMMENT '承認済みの残業終了時刻',
@@ -68,14 +69,14 @@ CREATE TABLE attendance_records (
   CONSTRAINT fk_attendance_employee FOREIGN KEY (employee_code) REFERENCES employees (employee_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='勤怠情報';
 
--- 申請（一時領域）。承認されるまで attendance_records に反映しない。
+-- 申請（一時領域）。承認されるまで attendances に反映しない。
 CREATE TABLE attendance_requests (
   id                     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   employee_code          VARCHAR(7) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '申請者',
   target_date            DATE       NOT NULL COMMENT '対象日',
   request_type           ENUM('correction','overtime') NOT NULL COMMENT '種別(correction=修正・新規登録,overtime=残業)',
-  requested_clock_in_at  DATETIME   NULL COMMENT '申請: 出勤時刻(correction)',
-  requested_clock_out_at DATETIME   NULL COMMENT '申請: 退勤時刻(correction)',
+  requested_check_in_at  DATETIME   NULL COMMENT '申請: 出勤時刻(correction)',
+  requested_check_out_at DATETIME   NULL COMMENT '申請: 退勤時刻(correction)',
   requested_break_start_at DATETIME NULL COMMENT '申請: 休憩開始(correction)',
   requested_break_end_at DATETIME   NULL COMMENT '申請: 休憩終了(correction)',
   requested_overtime_end_at DATETIME NULL COMMENT '申請: 残業終了時刻(overtime)',

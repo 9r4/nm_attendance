@@ -1,13 +1,13 @@
 # DB設計書（案・承認待ち）
 
-状態: **案。依頼者の承認後に確定する**（承認後、決定事項.md に記録し、実装は PR 運用）。
-DDL: [db/schema.sql](./db/schema.sql)（MariaDB 10.11 で作成と制約の動作を検証済み。本番は MySQL のため、DB バージョン確認後に再検証する）
+状態: **案（2026-10-01 指摘を反映済み）。依頼者の最終承認後に確定する**（承認後、決定事項.md に記録し、実装は PR 運用）。
+DDL: [db/schema.sql](./db/schema.sql)（MySQL 8.0.46 で作成と制約の動作を検証済み。本番は 8.4.11 で、同系統のため同じ動作の見込みだが、実機で最終確認する）
 
 ## 1. 前提（決定済み）
 
 | 項目 | 内容 | 参照 |
 | --- | --- | --- |
-| DBMS | MySQL（InnoDB / utf8mb4）。DB名 `attendance_traning`、ユーザー `attendance_app@localhost` | D-005 |
+| DBMS | MySQL（InnoDB / utf8mb4）。DB名 `attendance_training`、ユーザー `attendance_app@localhost` | D-005 |
 | 勤怠の粒度 | 1社員×1日＝1行 | D-006 |
 | 休憩 | 1日1回。昼休憩（既定12:00〜13:00）は別扱い | D-007, D-009 |
 | 標準労働時間 | 全社共通の1パターンを設定テーブルで管理 | D-008 |
@@ -25,13 +25,13 @@ DDL: [db/schema.sql](./db/schema.sql)（MariaDB 10.11 で作成と制約の動�
 erDiagram
     departments ||--o{ employees : "所属"
     employees ||--|| login_accounts : "ログインID=社員コード"
-    employees ||--o{ attendance_records : "1日1行"
+    employees ||--o{ attendances : "1日1行"
     employees ||--o{ attendance_requests : "申請者"
     employees ||--o{ attendance_requests : "承認者(reviewer)"
     departments { int id PK }
     employees { varchar employee_code PK }
     login_accounts { varchar login_id PK_FK }
-    attendance_records { bigint id PK }
+    attendances { bigint id PK }
     attendance_requests { bigint id PK }
     work_settings { tinyint id PK }
     employee_code_sequences { smallint year PK }
@@ -44,7 +44,7 @@ erDiagram
 | departments | 部署マスタ |
 | employees | 社員（氏名・メール・部署・入社日・退社日） |
 | login_accounts | ログイン情報（ID・パスワードハッシュ・権限・利用可否） |
-| attendance_records | 勤怠情報（1社員×1日＝1行） |
+| attendances | 勤怠情報（1社員×1日＝1行） |
 | attendance_requests | 申請＝一時領域（修正・新規登録／残業） |
 | work_settings | 勤務設定（標準始業・終業、昼休憩）。1行のみ |
 | employee_code_sequences | 社員コード採番用の年別カウンタ |
@@ -57,8 +57,9 @@ erDiagram
 | name | VARCHAR(100) | NOT NULL | 氏名 |
 | email | VARCHAR(254) UNIQUE | NOT NULL | メールアドレス |
 | department_id | INT FK→departments | NOT NULL | 部署 |
-| hire_date | DATE | NOT NULL | 入社日 |
+| joined_on | DATE | NOT NULL | 入社日 |
 | leave_date | DATE | NULL | 退社日（在籍中は NULL） |
+| employment_status | VARCHAR(20) | NOT NULL | 在籍状態。**初期値 `active`（在籍）**。他の値（退職など）は運用に合わせて追加する |
 | created_at / updated_at | DATETIME | NOT NULL | 作成・更新日時 |
 
 ### 3-2. login_accounts
@@ -72,15 +73,15 @@ erDiagram
 | last_login_at | DATETIME | NULL | 最終ログイン日時 |
 | created_at / updated_at | DATETIME | NOT NULL | |
 
-### 3-3. attendance_records
+### 3-3. attendances
 
 | 列 | 型 | NULL | 説明 |
 | --- | --- | --- | --- |
 | id | BIGINT PK | NOT NULL | |
 | employee_code | VARCHAR(7) FK | NOT NULL | 社員コード |
 | work_date | DATE | NOT NULL | 勤務日。**(employee_code, work_date) で一意**（BR-005） |
-| clock_in_at | DATETIME | NULL | 出勤時刻 |
-| clock_out_at | DATETIME | NULL | 退勤時刻 |
+| check_in_at | DATETIME | NULL | 出勤時刻 |
+| check_out_at | DATETIME | NULL | 退勤時刻 |
 | break_start_at | DATETIME | NULL | 休憩開始（昼休憩とは別） |
 | break_end_at | DATETIME | NULL | 休憩終了 |
 | overtime_end_at | DATETIME | NULL | 承認済みの残業終了時刻 |
@@ -94,7 +95,7 @@ erDiagram
 | employee_code | VARCHAR(7) FK | NOT NULL | 申請者 |
 | target_date | DATE | NOT NULL | 対象日 |
 | request_type | ENUM('correction','overtime') | NOT NULL | 種別（修正・新規登録／残業） |
-| requested_clock_in_at 他4列 | DATETIME | NULL | 申請する時刻（出勤・退勤・休憩開始・休憩終了・残業終了） |
+| requested_check_in_at 他4列 | DATETIME | NULL | 申請する時刻（出勤・退勤・休憩開始・休憩終了・残業終了） |
 | reason | VARCHAR(500) | NOT NULL | 申請理由 |
 | status | ENUM('pending','approved','rejected') | NOT NULL | 申請中／承認済み／却下 |
 | reviewer_code | VARCHAR(7) FK | NULL | 承認・却下した管理者 |
@@ -124,7 +125,7 @@ erDiagram
 | --- | --- |
 | FR-001 ログイン | `login_accounts` を login_id で取得 → `is_active=1` と `password_verify()` を確認 → `last_login_at` 更新。権限（role）をセッションに保持 |
 | FR-003 出退勤 | 当日の行が無ければ INSERT、有れば UPDATE。2回目以降は上書き確認（BR-001）後に UPDATE |
-| FR-004 記録表示 | `attendance_records` を社員コードと月で絞り込み、`attendance_requests` の pending を重ねて表示 |
+| FR-004 記録表示 | `attendances` を社員コードと月で絞り込み、`attendance_requests` の pending を重ねて表示 |
 | FR-005/008 申請 | `attendance_requests` に pending で INSERT。一意制約違反を BR-002 のエラーとして扱う |
 | FR-006 承認 | トランザクション内で、勤怠を INSERT … ON DUPLICATE KEY UPDATE で反映 → 申請を approved に更新（reviewer_code・reviewed_at）。却下は rejected とコメントのみ更新 |
 | FR-007 アカウント作成 | トランザクション内で社員コードを採番 → `employees` と `login_accounts` を INSERT |
@@ -151,13 +152,35 @@ erDiagram
 | P-3 | **管理者も社員として `employees` に登録する**（権限は `login_accounts.role`） | 管理者も出退勤するため |
 | P-4 | **修正・新規登録の申請は「その日の4つの時刻の全体」を持つ**（NULL＝空欄にする）。新規かどうかは対象日の勤怠行の有無で決まる | 「一部だけ変更」と「空欄にする」を区別する必要が無く、承認時の反映が単純になる |
 | P-5 | **BR-002 の重複判定は「同一社員×対象日×種別の申請中」** | 引継ぎ資料の記述（同一対象日の申請中）を種別単位にした。同じ日の「修正」と「残業」は同時に出せる |
-| P-6 | **残業の承認結果は `attendance_records.overtime_end_at` に持つ** | 承認で本番に反映する方針（Step4）に沿う |
+| P-6 | **残業の承認結果は `attendances.overtime_end_at` に持つ** | 承認で本番に反映する方針（Step4）に沿う |
 | P-7 | **時刻は DATETIME（JST）で保存**し、接続ごとに `SET time_zone='+09:00'` を実行 | BR-004。日跨ぎの勤務にも対応できる |
 | P-8 | **パスワードは `password_hash()` でハッシュ化**。アカウントのロック等の不正対策は今回は含めない | 不正対策の要否が未確定のため |
 
-## 6. 要確認
+## 6. 外部キー（テーブル間の紐づけ）
 
-1. **標準始業時刻**：9:00 でよいか（標準終業は 18:00 で確定済み）。
-2. **DB名の綴り**：`attendance_traning` は `attendance_training` の誤記ではないか。
-3. **MySQL のバージョン**：WSL で `mysql --version` の結果を教えてほしい（生成列・外部キー等の動作確認のため）。
-4. 上記 P-1〜P-8 の承認、または修正。
+すべて InnoDB の外部キーで紐づけ、存在しない相手への登録や、参照されている行の削除はDBが拒否する（`RESTRICT`）。
+
+| 子テーブル.列 | → 親テーブル.列 | 意味 |
+| --- | --- | --- |
+| employees.department_id | departments.id | 社員の所属部署 |
+| login_accounts.login_id | employees.employee_code | ログインID＝社員コード（1社員に1ログイン情報） |
+| attendances.employee_code | employees.employee_code | 勤怠の持ち主 |
+| attendance_requests.employee_code | employees.employee_code | 申請者 |
+| attendance_requests.reviewer_code | employees.employee_code | 承認・却下した管理者 |
+
+在籍状態の更新（退職時）は、`employment_status`・`leave_date`・`login_accounts.is_active=0` を同一トランザクションで更新する。
+
+## 7. 確認済み・残りの確認
+
+| 項目 | 結果 |
+| --- | --- |
+| 標準始業時刻 | 9:00 で確定 |
+| DB名 | `attendance_training`（誤記を訂正） |
+| MySQL バージョン | 8.4.11（WSL）。生成列・外部キーとも利用可能 |
+| 命名の変更（依頼者の指摘） | `attendance_records`→`attendances`、`clock_in/out_at`→`check_in/out_at`、`hire_date`→`joined_on`、`employment_status` を追加 |
+| P-1〜P-8 | 依頼者の指摘（上記）以外の修正は無し。最終承認を依頼中 |
+
+### 確認したいこと
+
+- 日付の列名を `joined_on`（入社日）に揃えたため、退社日 `leave_date` も `left_on` に揃えるか。**このまま `leave_date` か、`left_on` に変更するか。**
+- 申請テーブルは `attendance_requests` のままでよいか（勤怠テーブルを `attendances` にしたため、`attendance_requests` との対応は保たれる）。
