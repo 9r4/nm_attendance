@@ -69,6 +69,7 @@ erDiagram
 | login_id | VARCHAR(20) PK | NOT NULL | ログインID。社員・管理者は社員コードと同じ値。システム管理者は任意のID（例：`sysadmin`） |
 | employee_code | VARCHAR(7) UNIQUE, FK→employees | NULL | 社員コード。**システム管理者のみ NULL**（社員ではないため） |
 | password_hash | VARCHAR(255) | NOT NULL | パスワードハッシュ（PHP の `password_hash()` の結果を想定。平文は保存しない） |
+| approval_scope | ENUM('department','all') | NOT NULL | 承認できる範囲（`manager` のみ使用）。`department`＝自分の所属部署の社員の申請のみ（初期値）、`all`＝全社員の申請（総合部長などの幹部層） |
 | role | ENUM('employee','manager','system_admin') | NOT NULL | 権限：`employee`＝社員、`manager`＝管理者（上司・部長等。社員なので勤怠データを持つ）、`system_admin`＝システム管理者（会社の最高権限。社員ではない） |
 | is_active | TINYINT(1) | NOT NULL | 利用可否（0＝ログイン不可） |
 | last_login_at | DATETIME | NULL | 最終ログイン日時 |
@@ -129,8 +130,22 @@ erDiagram
 | FR-003 出退勤 | 当日の行が無ければ INSERT、有れば UPDATE。2回目以降は上書き確認（BR-001）後に UPDATE |
 | FR-004 記録表示 | `attendances` を社員コードと月で絞り込み、`attendance_requests` の pending を重ねて表示 |
 | FR-005/008 申請 | `attendance_requests` に pending で INSERT（申請時点の勤怠の値を `original_*` に控える）。一意制約違反を BR-002 のエラーとして扱う |
-| FR-006 承認 | トランザクション内で、勤怠を INSERT … ON DUPLICATE KEY UPDATE で反映 → 申請を approved に更新（reviewer_code・reviewed_at）。却下は rejected とコメントのみ更新 |
-| FR-007 アカウント作成 | トランザクション内で社員コードを採番 → `employees` と `login_accounts` を INSERT |
+| FR-006 承認 | 承認できるのは `manager` のみ。申請者が承認者の承認範囲に入っているか確認（`approval_scope='department'` なら申請者の `department_id` が自分と同じ、`all` なら全社員）。自分の申請は承認不可（DBのCHECKでも防止）。トランザクション内で、勤怠を INSERT … ON DUPLICATE KEY UPDATE で反映 → 申請を approved に更新（reviewer_code・reviewed_at）。却下は rejected とコメントのみ更新 |
+| FR-007 アカウント作成 | システム管理者のみ。トランザクション内で社員コードを採番 → `employees` と `login_accounts` を INSERT |
+
+### 権限（D-021, D-024, D-025）
+
+| 操作 | 社員 `employee` | 管理者 `manager`（上司・部長等） | システム管理者 `system_admin` |
+| --- | :---: | :---: | :---: |
+| 出退勤・休憩・記録の確認（自分の分） | ○ | ○ | ×（社員ではない） |
+| 修正・新規登録・残業の申請 | ○ | ○ | × |
+| 申請の承認・却下 | × | ○（範囲は `approval_scope`。自分の申請は不可） | × |
+| アカウント作成・無効化 | × | ×（※要確認） | ○ |
+| 部署マスタ・勤務設定（標準労働時間・昼休憩）の管理 | × | × | ○ |
+
+- 管理者の申請（例：部長の修正申請）は、他の管理者が承認する。同じ部署に他の管理者がいない場合は、`approval_scope='all'` の管理者（総合部長など）が承認する。
+- 承認範囲が特定の複数部署のみ（全社ではない）の場合は、将来「承認対象部署」テーブルを追加して拡張する。
+- 初期のシステム管理者は、画面からは作れないため、SQL で直接登録する（手順は別途用意）。
 
 ### 社員コードの採番ルール（D-013）
 
@@ -178,10 +193,10 @@ erDiagram
 | 子テーブル.列 | → 親テーブル.列 | 意味 |
 | --- | --- | --- |
 | employees.department_id | departments.id | 社員の所属部署 |
+| attendance_requests.reviewer_code | employees.employee_code | 承認・却下した管理者（`manager`）。申請者本人は不可 |
 | login_accounts.employee_code | employees.employee_code | 社員のログイン情報（1社員に1つ。システム管理者は NULL で対象外） |
 | attendances.employee_code | employees.employee_code | 勤怠の持ち主 |
 | attendance_requests.employee_code | employees.employee_code | 申請者 |
-| attendance_requests.reviewer_code | employees.employee_code | 承認・却下した管理者 |
 
 在籍状態の更新（退職時）は、`employment_status`・`left_on`・`login_accounts.is_active=0` を同一トランザクションで更新する。
 

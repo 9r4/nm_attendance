@@ -47,6 +47,7 @@ CREATE TABLE login_accounts (
   employee_code  VARCHAR(7)   CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '社員コード(システム管理者はNULL)',
   password_hash  VARCHAR(255) NOT NULL COMMENT 'パスワードハッシュ(平文は保存しない)',
   role           ENUM('employee','manager','system_admin') NOT NULL DEFAULT 'employee' COMMENT '権限(社員/管理者(上司・部長等)/システム管理者)',
+  approval_scope ENUM('department','all') NOT NULL DEFAULT 'department' COMMENT '承認できる範囲(manager用。department=自分の所属部署の社員のみ,all=全社員)',
   is_active      TINYINT(1)   NOT NULL DEFAULT 1 COMMENT '利用可否(1=可,0=不可)',
   last_login_at  DATETIME     NULL COMMENT '最終ログイン日時',
   created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -108,7 +109,9 @@ CREATE TABLE attendance_requests (
   KEY idx_requests_status (status, created_at),
   KEY idx_requests_employee_date (employee_code, target_date),
   CONSTRAINT fk_requests_employee FOREIGN KEY (employee_code) REFERENCES employees (employee_code),
-  CONSTRAINT fk_requests_reviewer FOREIGN KEY (reviewer_code) REFERENCES employees (employee_code)
+  CONSTRAINT fk_requests_reviewer FOREIGN KEY (reviewer_code) REFERENCES employees (employee_code),
+  -- 自分の申請は自分で承認できない
+  CONSTRAINT chk_requests_not_self_review CHECK (reviewer_code IS NULL OR reviewer_code <> employee_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='申請(一時領域)';
 
 -- 勤務設定（全社共通の1行のみ。id=1 固定）
