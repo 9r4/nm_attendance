@@ -101,7 +101,7 @@ erDiagram
 | request_type | ENUM('correction','overtime') | NOT NULL | 種別（修正・新規登録／残業） |
 | requested_check_in_at 他4列 | DATETIME | NULL | 申請する時刻（出勤・退勤・休憩開始・休憩終了・残業終了） |
 | original_check_in_at 他4列 | DATETIME | NULL | **申請時点の勤怠の値**（出勤・退勤・休憩開始・休憩終了・残業終了）。承認で勤怠が上書きされても残り、「変更前→申請値」の表示に使う |
-| reason | VARCHAR(500) | NOT NULL | 申請理由 |
+| reason | VARCHAR(500) | NULL | 申請理由。**任意**（修正・新規登録の申請ウィンドウの入力は任意。簡単残業申請には入力欄が無く、NULL になる）。D-041 |
 | status | ENUM('pending','approved','rejected') | NOT NULL | 申請中／承認済み／却下 |
 | reviewer_id | VARCHAR(7) FK | NULL | 承認・却下した管理者 |
 | review_comment | VARCHAR(500) | NULL | 却下コメント（任意） |
@@ -129,7 +129,7 @@ erDiagram
 | 機能 | 処理 |
 | --- | --- |
 | FR-001 ログイン | `login_accounts` を login_id で取得（社員・管理者・システム管理者とも同じ流れ） → `is_active=1` と `password_verify()` を確認 → `last_login_at` 更新。権限（role）をセッションに保持 |
-| FR-003 出退勤 | 当日の行が無ければ INSERT、有れば UPDATE。2回目以降は上書き確認（BR-001）後に UPDATE |
+| FR-003 出退勤・休憩 | 当日の行が無ければ INSERT、有れば UPDATE。出勤・退勤の2回目以降は上書き確認（BR-001）後に UPDATE。**休憩は1日1回**：休憩開始で `break_start_at`、休憩終了で `break_end_at` を記録し、**休憩終了のあとは、「休憩開始」を押せなくする**（D-042）。休憩の記録の間違いは、修正申請で直す |
 | FR-004 記録表示 | `attendances` を社員コードと月で絞り込み、`attendance_requests` の pending を重ねて表示 |
 | FR-005/008 申請 | `attendance_requests` に pending で INSERT（申請時点の勤怠の値を `original_*` に控える）。一意制約違反を BR-002 のエラーとして扱う |
 | FR-006 承認 | 承認できるのは `manager` のみ。申請者が承認者の承認範囲に入っているか確認（`approval_scope='department'` なら申請者の `department_id` が自分と同じ、`all` なら全社員）。自分の申請は承認不可（DBのCHECKでも防止）。トランザクション内で、勤怠を INSERT … ON DUPLICATE KEY UPDATE で反映 → 申請を approved に更新（reviewer_id・reviewed_at）。却下は rejected とコメントのみ更新 |
@@ -168,6 +168,13 @@ erDiagram
 
 - 申請中：現在の勤怠は変わらない。承認後：勤怠が申請値に置き換わる（変更前は `original_*` に残る）。却下：勤怠は変わらない。
 - 新規登録は、変更前がすべて「なし」になる。
+
+### 祝日の扱い（D-044）
+
+- 日本の祝日（国民の祝日、振替休日、国民の休日）は、**DB に持たず、プログラムの中で自動で計算**する（春分の日・秋分の日は計算式、ハッピーマンデー・振替休日・国民の休日もルールで判定）。
+- 会社独自の休日は、今回は対象外。
+- 用途：記録表示のカレンダーでの祝日名の表示、休日（土日・祝日）の背景色。
+- 実装時は、計算結果を内閣府の祝日の一覧と照らして、自動テストで検証する（法改正や、特例の年（2020 年、2021 年）の扱いも含む）。
 
 ### 労働時間の計算（参考）
 

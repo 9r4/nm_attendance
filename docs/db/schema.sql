@@ -95,7 +95,7 @@ CREATE TABLE attendance_requests (
   original_break_start_at DATETIME  NULL COMMENT '申請時点の休憩開始',
   original_break_end_at  DATETIME   NULL COMMENT '申請時点の休憩終了',
   original_overtime_end_at DATETIME NULL COMMENT '申請時点の残業終了時刻',
-  reason                 VARCHAR(500) NOT NULL COMMENT '申請理由',
+  reason                 VARCHAR(500) NULL COMMENT '申請理由(任意。簡単残業申請はNULL)',
   status                 ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending' COMMENT '状態(申請中/承認済み/却下)',
   reviewer_id          VARCHAR(7) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '承認・却下した管理者',
   review_comment         VARCHAR(500) NULL COMMENT '却下コメント(任意)',

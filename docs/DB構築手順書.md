@@ -197,22 +197,35 @@ DROP TABLE attendance_requests, attendances, login_accounts, employee_id_sequenc
 
 その後、「0-2」の一時ファイルの取り出しからやり直す。
 
-## 4. すでに構築済みのDBを、列名の変更（2026-10-01）に合わせて更新する
+## 4. すでに構築済みのDBを、設計変更に合わせて更新する（移行 SQL）
 
-2026-10-01 に、列名とテーブル名を変更した（`employee_code`→`employee_id`、`reviewer_code`→`reviewer_id`、`employee_code_sequences`→`employee_id_sequences`。決定事項 D-040）。**変更前の DB設計でテーブルを作成済みの場合**は、データを残したまま、次の手順で更新する（変更後の DB設計で、初めて作成する場合は不要）。
+DB設計を変更したとき、**すでにテーブルを作成済みの DB** は、データを残したまま、移行用の SQL（`docs/db/migrations/` 配下）で更新する。**変更後の DB設計（最新の `schema.sql`）で、初めて作成する場合は、移行 SQL は不要**。
+
+### 移行 SQL の一覧
+
+**日付の古い順に、1つずつ、1回だけ適用する**（2回目は、すでに変更済みのためエラーになることがある）。
+
+| # | ファイル | 内容 | 決定事項 | 適用状況（WSL） |
+| --- | --- | --- | --- | --- |
+| 1 | `2026-10-01_employee_code_to_employee_id.sql` | 列名・テーブル名の変更（`employee_code`→`employee_id` ほか） | D-040 | 適用済み（2026-10-01） |
+| 2 | `2026-10-01_request_reason_nullable.sql` | 申請の理由を任意（NULL 可）に変更 | D-041 | **未適用** |
+
+> 適用したら、上の表の「適用状況」を更新する（Claude が、報告を受けて更新する）。
 
 ### 4-1. 移行用の SQL を一時ファイルに取り出す（ターミナルで）
+
+下は、**#2** の例。#1 など、別の移行 SQL を適用するときは、ファイル名（2か所）を、表のファイル名に置き換える。
 
 **【ターミナルで実行】**
 
 ```bash
 cd /var/www/html/attendance
 git fetch origin
-git show origin/main:docs/db/migrations/2026-10-01_employee_code_to_employee_id.sql > /tmp/migration.sql
+git show origin/main:docs/db/migrations/2026-10-01_request_reason_nullable.sql > /tmp/migration.sql
 head -3 /tmp/migration.sql
 ```
 
-先頭に `-- 列名・テーブル名の変更（2026-10-01、決定事項 D-040）` と表示されれば OK。
+先頭に `-- 申請の理由を、必須（NOT NULL）から任意（NULL 可）に変更…` と表示されれば OK。
 
 ### 4-2. 適用する（mysql に入って）
 
@@ -229,20 +242,19 @@ USE attendance_training;
 SOURCE /tmp/migration.sql
 ```
 
-`ERROR` が出なければ成功。**1回だけ実行する**（2回目は、すでに改名済みのためエラーになる）。確認する。
+`ERROR` が出なければ成功。#2 の場合は、次で確認する（`reason` が `YES`（NULL 可）になる）。
 
 **【mysql 内で実行】**
 
 ```sql
-SHOW TABLES;
-SELECT login_id, employee_id, role FROM login_accounts;
+SHOW COLUMNS FROM attendance_requests LIKE 'reason';
 ```
 
 **【出力例（入力しない）】**
 
 ```
-employee_id_sequences ほか（`employee_code_sequences` が無く、`employee_id_sequences` がある）
-sysadmin | NULL | system_admin
+Field   Type          Null  Key  Default  Extra
+reason  varchar(500)  YES        NULL
 ```
 
 mysql から出て、一時ファイルを削除する。
@@ -259,7 +271,7 @@ exit
 rm /tmp/migration.sql
 ```
 
-> 移行 SQL が失敗した場合（途中でエラー）は、開発中でデータが無ければ、「3. やり直したい場合」のとおり、`DROP TABLE` 文の**テーブル名を変更前の名前**（`employee_code_sequences`）にして実行し、「1. テーブルの作成」「2. 最初のシステム管理者の登録」をやり直す。
+> 移行 SQL が失敗した場合は、エラーの内容を連絡する。開発中でデータが無ければ、「3. やり直したい場合」で、`DROP TABLE` 文の**テーブル名を、現在の DB にあるテーブル名**にして実行し、「1. テーブルの作成」「2. 最初のシステム管理者の登録」をやり直してもよい（#1 を適用していない DB では、`employee_code_sequences` が、テーブル名になっている）。
 
 ## 5. よくある失敗
 
