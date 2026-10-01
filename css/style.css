@@ -1,0 +1,83 @@
+body {
+    margin-left: 5vw;
+    margin-right: 5vw;
+}
+
+body header {
+    display: flex;
+}
+
+body header .head-status {
+    margin: 0 10px 0 auto;
+    display: flex;
+
+}
+
+.main .time-space {
+    text-align: center;
+}
+
+.time-space #clock {
+    font-size: 500%;
+}
+
+.time-space #date {
+    font-size: 150%;
+}
+
+.today-clock-inout {
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+}
+
+.main .button-field {
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+    padding-top: 10px;
+}
+
+.l-button {
+    padding: 0.6em 1.2em;
+    border-radius: 0.3em;
+    /* background-color: #007bff; */
+    /* color: white; */
+    border: none;
+    cursor: pointer;
+    font-size: 24px;
+    width: 10em;
+}
+
+.m-button {
+    padding: 0.6em 1.2em;
+    height: 50%;
+    border-radius: 0.3em;
+    /* background-color: #007bff; */
+    /* color: white; */
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+table,
+th,
+td {
+    border: 1px solid black;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+.window {
+    display: none;
+    position: fixed;
+    top: 100px;
+    left: 100px;
+    width: 300px;
+    padding: 15px;
+    background: white;
+    border: 1px solid #333;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}

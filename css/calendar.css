@@ -1,0 +1,93 @@
+.calendar-container {
+    display: block;
+    width: 100%;
+    padding: 10px 20px;
+}
+
+/* 月 */
+.calendar-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.calendar-header button {
+    width: 25px;
+    height: 25px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#monthTitle {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* 曜日 */
+.weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-size: 9px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.sun {
+    color: #c0392b;
+}
+
+.sat {
+    color: #3567a8;
+}
+
+/* カレンダー */
+.calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+
+/* 日付 */
+.day {
+    height: 70px;
+    padding: 6px;
+    background: white;
+    border: 1px solid #e5e5e5;
+    border-radius: 5px;
+}
+
+.empty {
+    background: transparent;
+    border: none;
+}
+
+/* 日付 */
+.date {
+    font-size: 9px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+/* 出退勤 */
+.record {
+    font-size: 8px;
+    line-height: 1.5;
+}
+
+/* 土日 */
+.holiday {
+    background: #eeece5;
+}
+
+.holiday .date {
+    color: #9d3028;
+}
+
+/* 今日 */
+.today {
+    border: 1px solid #008577;
+}
