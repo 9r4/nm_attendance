@@ -210,4 +210,4 @@ try {
 | MySQL | 8.4.11 |
 
 - Claude の検証環境の PHP は 8.3 系のため、**8.3 でも 8.5 でも動く書き方**にする。8.5 で警告（非推奨）が出ないかは、依頼者の WSL で確認する。
-- PHP を Apache がどう実行しているか（`mod_php`／`php-fpm`）、`.htaccess` が有効かは未確認。確認のコマンドは [技術方針.md](./技術方針.md) の3章を参照。
+- PHP は Apache の `mod_php`（確認済み）。`.htaccess` は使えない（`AllowOverride None`）ため、Apache の設定ファイルで制御する（[技術方針.md](./技術方針.md) 2-1、[Apache設定手順書.md](./Apache設定手順書.md)）。
