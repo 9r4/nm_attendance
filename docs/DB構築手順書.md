@@ -7,6 +7,19 @@
 - MySQL：8.4.11
 - 対象：7テーブル（departments, employee_code_sequences, employees, login_accounts, attendances, attendance_requests, work_settings）
 
+## 前提（先に済ませておくこと）
+
+**[WSL環境へのソース配置手順書.md](./WSL環境へのソース配置手順書.md) の「0. 事前準備」と「1. 初回配置」を、先に完了させる。**
+
+- 理由：この手順書は、`/var/www/html/attendance` にあるリポジトリ（git clone 済み）から SQL を取り出して使う（0-2）。配置が済んでいないと、`cd` や `git show` が失敗する。
+- 確認：次のコマンドで `.git` と `index.html` などが表示されれば、配置済み。
+
+**【ターミナルで実行】**
+
+```bash
+ls -A /var/www/html/attendance
+```
+
 ## 表記のルール
 
 コードブロックの直前の見出しで、**実行する場所**を区別する。コードブロックの中身は、**そのままコピーして貼り付けられる**（プロンプトの `$` や `mysql>` は書いていない）。
