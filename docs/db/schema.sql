@@ -29,7 +29,7 @@ CREATE TABLE employees (
   email          VARCHAR(254) NOT NULL COMMENT 'メールアドレス',
   department_id  INT UNSIGNED NOT NULL COMMENT '部署ID',
   joined_on      DATE         NOT NULL COMMENT '入社日',
-  leave_date     DATE         NULL     COMMENT '退社日(在籍中はNULL)',
+  left_on        DATE         NULL     COMMENT '退社日(在籍中はNULL)',
   employment_status VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT '在籍状態(active=在籍)',
   created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

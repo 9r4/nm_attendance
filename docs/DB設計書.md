@@ -58,7 +58,7 @@ erDiagram
 | email | VARCHAR(254) UNIQUE | NOT NULL | メールアドレス |
 | department_id | INT FK→departments | NOT NULL | 部署 |
 | joined_on | DATE | NOT NULL | 入社日 |
-| leave_date | DATE | NULL | 退社日（在籍中は NULL） |
+| left_on | DATE | NULL | 退社日（在籍中は NULL） |
 | employment_status | VARCHAR(20) | NOT NULL | 在籍状態。**初期値 `active`（在籍）**。他の値（退職など）は運用に合わせて追加する |
 | created_at / updated_at | DATETIME | NOT NULL | 作成・更新日時 |
 
@@ -168,7 +168,7 @@ erDiagram
 | attendance_requests.employee_code | employees.employee_code | 申請者 |
 | attendance_requests.reviewer_code | employees.employee_code | 承認・却下した管理者 |
 
-在籍状態の更新（退職時）は、`employment_status`・`leave_date`・`login_accounts.is_active=0` を同一トランザクションで更新する。
+在籍状態の更新（退職時）は、`employment_status`・`left_on`・`login_accounts.is_active=0` を同一トランザクションで更新する。
 
 ## 7. 確認済み・残りの確認
 
@@ -177,10 +177,8 @@ erDiagram
 | 標準始業時刻 | 9:00 で確定 |
 | DB名 | `attendance_training`（誤記を訂正） |
 | MySQL バージョン | 8.4.11（WSL）。生成列・外部キーとも利用可能 |
-| 命名の変更（依頼者の指摘） | `attendance_records`→`attendances`、`clock_in/out_at`→`check_in/out_at`、`hire_date`→`joined_on`、`employment_status` を追加 |
+| 命名の変更（依頼者の指摘） | `attendance_records`→`attendances`、`clock_in/out_at`→`check_in/out_at`、`hire_date`→`joined_on`、`leave_date`→`left_on`、`employment_status` を追加 |
 | P-1〜P-8 | 依頼者の指摘（上記）以外の修正は無し。最終承認を依頼中 |
 
-### 確認したいこと
-
-- 日付の列名を `joined_on`（入社日）に揃えたため、退社日 `leave_date` も `left_on` に揃えるか。**このまま `leave_date` か、`left_on` に変更するか。**
-- 申請テーブルは `attendance_requests` のままでよいか（勤怠テーブルを `attendances` にしたため、`attendance_requests` との対応は保たれる）。
+- 退社日の列名は `left_on` に確定（日付の列名を `joined_on` と揃える）。
+- 申請テーブルは `attendance_requests` のまま確定。
