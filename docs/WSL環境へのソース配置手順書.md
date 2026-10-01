@@ -21,20 +21,65 @@ git --version
 
 表示されなければ `sudo apt update && sudo apt install -y git` で入れる。
 
-### 0-2. GitHub への認証を用意する（非公開リポジトリのため必須）
+### 0-2. GitHub への認証を用意する（SSH 鍵・非公開リポジトリのため必須）
 
-どちらか一方でよい。
+SSH の**デプロイキー**（このリポジトリ専用・読み取り専用の鍵）を使う。一度設定すれば、`git clone` / `git fetch` / `git pull` で、パスワードの入力は不要になる。鍵に有効期限もない。
 
-**A. HTTPS + Personal Access Token（簡単）**
+#### 0-2-1. このリポジトリ専用の鍵を作る（WSL）
 
-1. GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens で、`9r4/nm_attendance` のみ・`Contents: Read-only` のトークンを作る（読み取り専用でよい。ソースの反映は PR 経由のため、WSL からプッシュしない）。
-2. clone / pull のときに、ユーザー名に GitHub のユーザー名、パスワードに**トークン**を入力する。
-3. 毎回の入力を省くなら `git config --global credential.helper store`（トークンが平文で `~/.git-credentials` に保存される点に注意）。
+パスフレーズは空にする（入力が要らなくなる）。鍵ファイルは、自分だけが読める権限で作られる。
 
-**B. SSH 鍵**
+**【ターミナルで実行】**
 
-1. `ssh-keygen -t ed25519 -C "wsl"` で鍵を作り、`cat ~/.ssh/id_ed25519.pub` の内容を GitHub → Settings → SSH keys に登録する。
-2. 以降のURLは `git@github.com:9r4/nm_attendance.git` を使う。
+```bash
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+ssh-keygen -t ed25519 -f ~/.ssh/nm_attendance_deploy -N "" -C "wsl-nm_attendance-deploy"
+```
+
+#### 0-2-2. SSH の設定を追加する（WSL）
+
+この鍵を、`github-nm` という名前で使えるようにする。すでに `~/.ssh/config` がある場合も、末尾に追記される。
+
+**【ターミナルで実行】**
+
+```bash
+cat >> ~/.ssh/config <<'EOF'
+Host github-nm
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/nm_attendance_deploy
+  IdentitiesOnly yes
+EOF
+chmod 600 ~/.ssh/config
+```
+
+#### 0-2-3. 公開鍵を表示してコピーする（WSL）
+
+**【ターミナルで実行】**
+
+```bash
+cat ~/.ssh/nm_attendance_deploy.pub
+```
+
+`ssh-ed25519 AAAA…` で始まる1行を、全部コピーする。`.pub` が付いた**公開鍵**だけをコピーする（`.pub` が付いていない秘密鍵は、誰にも見せない）。
+
+#### 0-2-4. GitHub にデプロイキーとして登録する（ブラウザ）
+
+1. GitHub のリポジトリ `9r4/nm_attendance` → **Settings** → **Deploy keys** → **Add deploy key**。
+2. Title：`WSL`（任意）。Key：0-2-3 でコピーした1行を貼り付ける。
+3. **「Allow write access」にはチェックを入れない**（読み取り専用）。
+4. **Add key** を押す。
+
+#### 0-2-5. 接続を確認する（WSL）
+
+**【ターミナルで実行】**
+
+```bash
+ssh -T github-nm
+```
+
+初回は `Are you sure you want to continue connecting (yes/no/[fingerprint])?` と聞かれるので、`yes` と入力する。
+`Hi 9r4/nm_attendance! You've successfully authenticated, but GitHub does not provide shell access.` と表示されれば成功。
 
 ## 1. 初回配置
 
@@ -56,13 +101,13 @@ sudo chown -R $USER:$USER /var/www/html/attendance
 **【ターミナルで実行】**
 
 ```bash
-git clone --no-checkout https://github.com/9r4/nm_attendance.git /var/www/html/attendance
+git clone --no-checkout git@github-nm:9r4/nm_attendance.git /var/www/html/attendance
 cd /var/www/html/attendance
 git sparse-checkout set --no-cone '/*' '!/docs/' '!/CLAUDE.md'
 git checkout main
 ```
 
-SSH を使う場合は、1行目の URL を `git@github.com:9r4/nm_attendance.git` に置き換える。
+`git@github-nm:…` は、0-2-2 で作った設定名（`github-nm`）を使った SSH の URL。
 
 ### 1-3. 配置結果の確認
 
@@ -115,7 +160,10 @@ cd /var/www/html/attendance && python3 -m http.server 8000
 | 症状 | 原因・対処 |
 | --- | --- |
 | `destination path ... already exists and is not an empty directory` | 配置先が空でない。1-1 の注意を参照 |
-| `Authentication failed` | トークンの期限切れ・権限不足。再作成して入力し直す |
+| `Permission denied (publickey)` | デプロイキーが未登録、または別の鍵が使われている。0-2-4 の登録と、0-2-2 の `~/.ssh/config`（`IdentityFile` のパス）を確認し、`ssh -T github-nm` を再実行する |
+| `Host key verification failed` | `ssh -T github-nm` を一度も実行していない。0-2-5 を実行して `yes` と入力する |
+| `ssh-keygen: command not found` | SSH クライアントが未導入。`sudo apt install -y openssh-client` を実行する |
+| `Could not resolve hostname github-nm` | 0-2-2 の `~/.ssh/config` が無い、または書き間違い。`cat ~/.ssh/config` で確認する |
 | `Permission denied` | 1-1 の `chown` が未実施。再実行する |
 | `docs/` が配置されてしまった | `git sparse-checkout set --no-cone '/*' '!/docs/' '!/CLAUDE.md'` を再実行する |
 | `git pull` が競合する | 配置先のファイルを直接編集している。`git status` で確認し、`git checkout -- .` で戻してから pull する |
