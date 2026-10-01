@@ -4,7 +4,7 @@ WSL(Ubuntu) の `/var/www/html/attendance` に、GitHub のソースを配置・
 
 - 配置先（プロジェクトルート）: `/var/www/html/attendance`
 - リポジトリ: `https://github.com/9r4/nm_attendance`（非公開）
-- ブランチ: `main`（※ `main` の作成は未完了。[タスク管理.md](./タスク管理.md) T-004 を参照。完了するまでは `claude/attendance-system-docs-8rsef4` を使う）
+- ブランチ: `main`（常に最新版。WSLには `main` だけを配置する。作業ブランチは取り込まない）
 - **WSL側に `docs/` と `CLAUDE.md` は不要** → `sparse-checkout` で除外する
 
 > 以降のコマンドは、WSL の Ubuntu ターミナルで実行する。`$` はプロンプトなので入力しない。
@@ -102,16 +102,6 @@ $ cd /var/www/html/attendance && python3 -m http.server 8000
 | --- | --- |
 | `destination path ... already exists and is not an empty directory` | 配置先が空でない。1-1 の注意を参照 |
 | `Authentication failed` | トークンの期限切れ・権限不足。再作成して入力し直す |
-| `pathspec 'main' did not match` | `main` が未作成。冒頭の注記のとおり作業ブランチ名を指定する（`git checkout claude/attendance-system-docs-8rsef4`） |
 | `Permission denied` | 1-1 の `chown` が未実施。再実行する |
 | `docs/` が配置されてしまった | `git sparse-checkout set --no-cone '/*' '!/docs/' '!/CLAUDE.md'` を再実行する |
 | `git pull` が競合する | 配置先のファイルを直接編集している。`git status` で確認し、`git checkout -- .` で戻してから pull する |
-
-## 5. ブランチ切り替え時（`main` 作成後に作業ブランチから移る場合）
-
-```bash
-$ cd /var/www/html/attendance
-$ git fetch origin
-$ git checkout main
-$ git pull
-```
