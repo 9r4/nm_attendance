@@ -273,7 +273,52 @@ rm /tmp/migration.sql
 
 > 移行 SQL が失敗した場合は、エラーの内容を連絡する。開発中でデータが無ければ、「3. やり直したい場合」で、`DROP TABLE` 文の**テーブル名を、現在の DB にあるテーブル名**にして実行し、「1. テーブルの作成」「2. 最初のシステム管理者の登録」をやり直してもよい（#1 を適用していない DB では、`employee_code_sequences` が、テーブル名になっている）。
 
-## 5. よくある失敗
+## 5. 確認用のテストデータを入れる（PR 2 以降の動作確認用）
+
+ログインなどを試すための、部署2つと社員4人（`docs/db/test_data.sql`）を入れる。**1回だけ実行する**（2回目は、重複のエラーになる）。パスワードは、どの社員も `Test1234`（テスト専用）。
+
+| ログイン ID | 氏名 | 部署 | 権限 | 備考 |
+| --- | --- | --- | --- | --- |
+| 2025001 | 山田 太郎 | 営業部 | 社員 | |
+| 2025002 | 佐藤 花子 | 営業部 | 管理者（承認範囲：部署） | |
+| 2025003 | 鈴木 一郎 | 開発部 | 管理者（承認範囲：全社） | |
+| 2025004 | 高橋 次郎 | 開発部 | 社員 | 利用不可（ログインできないことの確認用） |
+
+**【ターミナルで実行】**
+
+```bash
+cd /var/www/html/attendance
+git fetch origin
+git show origin/main:docs/db/test_data.sql > /tmp/test_data.sql
+mysql -u attendance_app -p
+```
+
+**【mysql 内で実行】**
+
+```sql
+USE attendance_training;
+SOURCE /tmp/test_data.sql
+SELECT login_id, employee_id, role, is_active FROM login_accounts;
+exit
+```
+
+**【出力例（入力しない）】**
+
+```
+2025001  2025001  employee      1
+2025002  2025002  manager       1
+2025003  2025003  manager       1
+2025004  2025004  employee      0
+sysadmin NULL     system_admin  1
+```
+
+**【ターミナルで実行】**
+
+```bash
+rm /tmp/test_data.sql
+```
+
+## 6. よくある失敗
 
 | 症状 | 原因・対処 |
 | --- | --- |
