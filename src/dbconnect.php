@@ -2,7 +2,7 @@
 // DB に接続して、接続結果を $pdo に入れる（ほかのファイルは $pdo を使う）
 // 書き方の見本：docs/PHPコーディング方針.md の 4章「src/dbconnect.php」
 
-    include_once(__DIR__ . '/errors.php');
+include_once(__DIR__ . '/errors.php');
 
 // TODO（依頼者）：DB に接続する
 // 1. try { … } catch (\PDOException $e) { … } で囲む
@@ -20,20 +20,21 @@
 //    - header('Content-Type: text/plain; charset=UTF-8', true, 500); で、エラーの状態にする
 //    - exit('データベースに接続できません。'); で、定型の文を出して終わる
 
-    // throw new RuntimeException('src/dbconnect.php は未実装です');
+// throw new RuntimeException('src/dbconnect.php は未実装です');
 
-    $dsn = 'mysql:host=localhost;dbname=attendance_training;charset=utf8mb4';
-    $user = 'attendance_app';
-    $pass = 'nm';
+$dsn = 'mysql:host=localhost;dbname=attendance_training;charset=utf8mb4';
+$user = 'attendance_app';
+$pass = 'nm';
 
-    try{
-        $pdo = new PDO($dsn, $user, $pass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ]);
-    } catch (PDOException $e){
-        exit('DBError:'.$e->getCode());
-    }
-    $pdo->exec("SET time_zone = '+09:00'");
-?>
+try {
+    $pdo = new PDO($dsn, $user, $pass, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ]);
+} catch (PDOException $e) {
+    error_log($e->getMessage());
+    header('Content-Type: text/plain; charset=UTF-8', true, 500);
+    exit('データベースに接続できません。');
+}
+$pdo->exec("SET time_zone = '+09:00'");
