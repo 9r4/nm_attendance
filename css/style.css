@@ -120,6 +120,158 @@ textarea {
     font-weight: 700;
 }
 
+/* ヘッダーの利用者の表示 */
+.app-header__user {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.app-header__profile {
+    text-align: right;
+    line-height: 1.35;
+}
+
+.app-header__user-name {
+    font-weight: 600;
+}
+
+.app-header__department {
+    color: var(--color-text-sub);
+    font-size: 14px;
+}
+
+/* ボタン */
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: var(--radius-s);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.button--primary {
+    background: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    color: #FFFFFF;
+    font-weight: 700;
+}
+
+.button--primary:hover {
+    background: var(--color-primary-hover);
+}
+
+.button--outline {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text);
+}
+
+.button--block {
+    width: 100%;
+    min-height: 52px;
+    border-radius: var(--radius-m);
+    font-size: 17px;
+}
+
+/* メッセージ */
+.alert {
+    padding: 12px 16px;
+    border-radius: var(--radius-s);
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.alert--error {
+    background: var(--color-error-bg);
+    color: var(--color-error-text);
+}
+
+.alert--info {
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+}
+
+/* 入力欄 */
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-field__label {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.form-field__input {
+    height: 48px;
+    padding: 0 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-s);
+    font-size: 16px;
+}
+
+/* ログイン画面 */
+.login {
+    display: flex;
+    justify-content: center;
+    padding: 64px 16px;
+}
+
+.login__card {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    max-width: 440px;
+    padding: 40px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-l);
+}
+
+.login__title {
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.login__lead {
+    margin-top: 8px;
+    color: var(--color-text-sub);
+    font-size: 15px;
+}
+
+.login__form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.login__forgot summary {
+    color: var(--color-primary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.login__forgot p {
+    margin-top: 8px;
+    color: var(--color-text-muted);
+    font-size: 14px;
+}
+
+.login__note {
+    color: var(--color-text-sub);
+    font-size: 13px;
+}
+
 /* 画面の本文 */
 .page {
     max-width: 760px;
@@ -173,6 +325,22 @@ textarea {
 }
 
 @media (max-width: 600px) {
+    .app-header {
+        padding: 0 16px;
+    }
+
+    .app-header__user {
+        gap: 12px;
+    }
+
+    .app-header__department {
+        display: none;
+    }
+
+    .login__card {
+        padding: 28px 20px;
+    }
+
     .settings {
         grid-template-columns: minmax(0, 1fr);
     }

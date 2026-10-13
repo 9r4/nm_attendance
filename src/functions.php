@@ -22,3 +22,16 @@ function appUrl(string $path = ''): string {
 function formatTime(?string $time): string {
     return $time === null ? '--:--' : substr($time, 0, 5);
 }
+
+// アプリ内の画面へ移動する（例：redirect('login.php')）
+function redirect(string $path = ''): never {
+    header('Location: ' . appUrl($path));
+    exit;
+}
+
+// 定型の文と HTTP の状態を返して、処理を終える（例：abort(403, 'この画面を使う権限がありません。')）
+function abort(int $status, string $message): never {
+    http_response_code($status);
+    header('Content-Type: text/plain; charset=UTF-8');
+    exit($message);
+}

@@ -3,6 +3,9 @@
 include_once(__DIR__ . '/src/functions.php');
 include_once(__DIR__ . '/src/dbconnect.php');
 include_once(__DIR__ . '/src/queries/work_settings.php');
+include_once(__DIR__ . '/src/auth.php');
+
+$currentUser = requireLogin($pdo);
 
 $settings = fetchWorkSettings($pdo);
 
