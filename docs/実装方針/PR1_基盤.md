@@ -55,8 +55,7 @@ Claude は、この関数の「枠」（関数の宣言と、**処理の流れ�
 <?php
 // 勤務設定（work_settings テーブル）を読み書きする関数
 
-function fetchWorkSettings(PDO $pdo): array
-{
+function fetchWorkSettings(PDO $pdo): array {
     // TODO（依頼者）：勤務設定（work_settings の id = 1 の行）を取得して返す
     // 1. SQL を書く：work_settings から standard_start, standard_end, lunch_start, lunch_end を取得（条件は id = :id）
     // 2. $pdo->prepare() で準備する

@@ -35,6 +35,7 @@
 ### 3-1-2. 命名と、依頼者が書く部分の枠（2026-10-13 追加）
 
 - **関数名**は、先頭が小文字で、単語の区切りを大文字にする（例：`fetchWorkSettings`、`insertAttendance`）（D-053）。既存の `h()` はそのまま。
+- **関数の `{` は、関数名と同じ行に書く**（例：`function fetchWorkSettings(PDO $pdo): array {`）。`if`・`foreach`・`try` なども同じ（D-056）。
 - 依頼者が中身を書く関数の「枠」には、Claude が**処理の流れを、簡単なコメント（番号付きの手順）で書いておく**（D-054）。依頼者は、コメントを見ながら中身を書く。
 
 ### 3-2. 既存コードから変える点（本プロジェクトの要件のため）
@@ -111,8 +112,7 @@ try {
 
 ```php
 <?php
-function h($value)
-{
+function h($value) {
     // NULL は空文字にする（PHP 8.1 以降、htmlspecialchars に NULL を渡すと非推奨の警告が出るため）
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
