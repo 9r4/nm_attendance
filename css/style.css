@@ -1,83 +1,183 @@
+/* 勤怠管理システム 共通のスタイル
+   リセット CSS（ress）のあとに読み込む。配色・形は画面モック（Claude Design / Figma）に合わせる */
+
+:root {
+    /* 文字・背景 */
+    --color-bg: #F5F4EF;
+    --color-surface: #FFFFFF;
+    --color-text: #1E2422;
+    --color-text-sub: #5B6660;
+    --color-text-muted: #3F4A45;
+
+    /* 枠線 */
+    --color-border: #DAD8CF;
+    --color-border-strong: #8A887E;
+
+    /* 主色（緑）と、退勤・警告の色 */
+    --color-primary: #0B6B61;
+    --color-primary-hover: #084F48;
+    --color-danger: #A8481F;
+
+    /* 状態の色（背景／文字） */
+    --color-success-bg: #DCEFE9;
+    --color-success-text: #0B5A51;
+    --color-error-bg: #F6DDD3;
+    --color-error-text: #7A2A0B;
+    --color-warning-bg: #FBEFD2;
+    --color-warning-text: #7A4B00;
+    --color-info-bg: #E1E7EE;
+    --color-info-text: #2B3A4D;
+    --color-neutral-bg: #EDEBE3;
+    --color-holiday-bg: #ECEAE2;
+
+    /* 形 */
+    --radius-s: 10px;
+    --radius-m: 12px;
+    --radius-l: 16px;
+
+    /* 文字 */
+    --font-family: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+
+/* ress が読み込めない場合でも崩れないよう、余白の初期化だけはここでも行う */
+body,
+h1,
+h2,
+h3,
+p,
+dl,
+dd {
+    margin: 0;
+}
+
 body {
-    margin-left: 5vw;
-    margin-right: 5vw;
+    min-height: 100vh;
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-family);
+    line-height: 1.6;
 }
 
-body header {
-    display: flex;
+a {
+    color: var(--color-primary);
 }
 
-body header .head-status {
-    margin: 0 10px 0 auto;
-    display: flex;
-
+a:hover {
+    color: var(--color-primary-hover);
 }
 
-.main .time-space {
-    text-align: center;
+button,
+input,
+select,
+textarea {
+    font-family: inherit;
 }
 
-.time-space #clock {
-    font-size: 500%;
+:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
 }
 
-.time-space #date {
-    font-size: 150%;
-}
-
-.today-clock-inout {
-    display: flex;
-    justify-content: space-around;
-    text-align: center;
-}
-
-.main .button-field {
-    display: flex;
-    justify-content: space-around;
-    text-align: center;
-    padding-top: 10px;
-}
-
-.l-button {
-    padding: 0.6em 1.2em;
-    border-radius: 0.3em;
-    /* background-color: #007bff; */
-    /* color: white; */
-    border: none;
-    cursor: pointer;
+/* Material Symbols のアイコン
+   フォントが読み込めない間・読み込めない場合に、アイコン名の文字（schedule など）がはみ出さないよう、1文字分の枠に収める */
+.material-symbols-outlined {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    overflow: hidden;
     font-size: 24px;
-    width: 10em;
+    line-height: 1;
+    vertical-align: middle;
+    user-select: none;
 }
 
-.m-button {
-    padding: 0.6em 1.2em;
-    height: 50%;
-    border-radius: 0.3em;
-    /* background-color: #007bff; */
-    /* color: white; */
-    border: none;
-    cursor: pointer;
-    font-size: 12px;
+/* 画面上部のヘッダー */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 72px;
+    padding: 0 24px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
 }
 
-table,
-th,
-td {
-    border: 1px solid black;
+.app-header__brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--color-text);
+    text-decoration: none;
 }
 
-table {
-    border-collapse: collapse;
+.app-header__icon {
+    font-size: 32px;
+    color: var(--color-primary);
 }
 
-.window {
-    display: none;
-    position: fixed;
-    top: 100px;
-    left: 100px;
-    width: 300px;
-    padding: 15px;
-    background: white;
-    border: 1px solid #333;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+.app-header__name {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+/* 画面の本文 */
+.page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 16px;
+}
+
+/* 白い枠の領域 */
+.card {
+    padding: 32px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-l);
+}
+
+.card__title {
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.card__note {
+    margin-top: 8px;
+    color: var(--color-text-sub);
+    font-size: 14px;
+}
+
+/* 勤務設定の一覧（仮のメイン画面） */
+.settings {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.settings__row {
+    padding: 14px 20px;
+    background: var(--color-bg);
+    border-radius: var(--radius-m);
+}
+
+.settings__row dt {
+    color: var(--color-text-sub);
+    font-size: 13px;
+}
+
+.settings__row dd {
+    white-space: nowrap;
+    font-size: 24px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 600px) {
+    .settings {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .card {
+        padding: 24px;
+    }
 }

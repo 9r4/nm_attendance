@@ -1,0 +1,10 @@
+# Composer（開発時のみ使う。WSL には配置しない）
+/vendor/
+
+# PHPUnit のキャッシュ
+/.phpunit.cache/
+.phpunit.result.cache
+
+# OS・エディタが作るファイル
+.DS_Store
+Thumbs.db
