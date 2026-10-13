@@ -1,9 +1,8 @@
 # Apache 設定手順書
 
-WSL(Ubuntu) の Apache に、勤怠管理システム用の設定を入れる手順。次の2つを行う。
+WSL(Ubuntu) の Apache に、勤怠管理システム用の設定（**内部ファイルを Web から見えなくする設定**、[apache/attendance.conf](./apache/attendance.conf)）を入れる手順。
 
-1. **内部ファイルを Web から見えなくする設定**（[apache/attendance.conf](./apache/attendance.conf)）を有効にする。
-2. **DB の接続情報**を、Web ルートの外 `/var/www/attendance_private/config.php` に置く。
+> 当初あった「DB の接続情報を Web ルートの外に置く」手順は、2026-10-13 に取りやめた（DB の接続情報は `src/dbconnect.php` に直接書く。決定事項 D-045）。
 
 ## 背景
 
@@ -87,66 +86,7 @@ src/             403
 - `.git/config`、`docs/`、`src/` は拒否される（403）。ディレクトリの一覧（`css/`）も、表示されない（403）。
 - `src/` や `docs/` が、まだ WSL に存在しなくても、403 になる（設定でアクセス自体を拒否している）。
 
-## 4. DB の接続情報の置き場所を作る
-
-Web ルート（`/var/www/html`）の外に、設定用のフォルダを作る。
-
-**【ターミナルで実行】**
-
-```bash
-sudo mkdir -p /var/www/attendance_private
-sudo chown root:www-data /var/www/attendance_private
-sudo chmod 750 /var/www/attendance_private
-```
-
-設定ファイルを作る（エディタが開くので、次の内容を貼り付けて、`db_pass` を `attendance_app` のパスワードに書き換えて保存する。`nano` の保存は Ctrl+O → Enter、終了は Ctrl+X）。
-
-**【ターミナルで実行】**
-
-```bash
-sudo nano /var/www/attendance_private/config.php
-```
-
-**【貼り付ける内容】**
-
-```php
-<?php
-return [
-    'db_name' => 'attendance_training',
-    'db_host' => 'localhost',
-    'db_user' => 'attendance_app',
-    'db_pass' => 'ここにパスワード',
-];
-```
-
-PHP を実行する Apache のユーザー（`www-data`）だけが読めるようにする。
-
-**【ターミナルで実行】**
-
-```bash
-sudo chown root:www-data /var/www/attendance_private/config.php
-sudo chmod 640 /var/www/attendance_private/config.php
-```
-
-確認する（`www-data` で読めること、他のユーザーでは読めないこと）。
-
-**【ターミナルで実行】**
-
-```bash
-sudo -u www-data test -r /var/www/attendance_private/config.php && echo "www-data: 読める"
-ls -l /var/www/attendance_private/
-```
-
-**【出力例（入力しない）】**
-
-```
-www-data: 読める
--rw-r----- 1 root www-data ... config.php
-```
-
-> パスワードを含むファイルは、**リポジトリにコミットしない**。このファイルは Git の管理外（`/var/www/html` の外）にある。
-
-## 5. 元に戻したい場合
+## 4. 元に戻したい場合
 
 **【ターミナルで実行】**
 
@@ -155,7 +95,7 @@ sudo a2disconf attendance
 sudo apache2ctl graceful
 ```
 
-## 6. よくある失敗
+## 5. よくある失敗
 
 | 症状 | 原因・対処 |
 | --- | --- |

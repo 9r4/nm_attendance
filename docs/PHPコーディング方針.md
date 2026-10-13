@@ -27,6 +27,7 @@
 ### 3-1. 既存コードに合わせる点
 
 - `dbconnect.php`（PDO の接続）、`functions.php`（`h()`）という名前と役割。
+- DB の接続情報（DB 名・ユーザー・パスワード）を、`dbconnect.php` に直接書く（ハードコーディング。2026-10-13 依頼者の判断、D-045。学習用で外部に公開しないため。注意点は [技術方針.md](./技術方針.md) 2-2）。
 - 名前付きプレースホルダ＋`bindParam`（型を明示）＋`execute()` の流れ。
 - `fetchAll()` と `fetch()` の使い分け。
 - 画面の `<?= h(…) ?>` による出力。
@@ -35,7 +36,6 @@
 
 | 変える点 | 理由 |
 | --- | --- |
-| DB のユーザー・パスワードを、コードに直接書かない。Web ルートの外の設定ファイル（`/var/www/attendance_private/config.php`）から読み込む | リポジトリ直下が Web ルートで、Git にも入るため。漏えいを防ぐ |
 | 接続エラーの内容（`$e->getMessage()`）を画面に出さない。`error_log()` に記録し、画面には定型の文を出す | 接続先などの内部情報の漏えいを防ぐ |
 | `PDO::ATTR_EMULATE_PREPARES => false` を追加する | SQL とデータを DB 側で分けて処理させ、SQL インジェクションへの耐性を高める |
 | 接続時に `SET time_zone = '+09:00'` を実行する | 時刻はすべて日本時間（BR-004） |
@@ -61,18 +61,6 @@
 
 DB の確定した構成（[DB設計書.md](./DB設計書.md)）に合わせた例。本番の実装でも、この形で書く（`departments` は部署マスタ）。
 
-**ファイル：`/var/www/attendance_private/config.php`**（Web ルートの外に手動で作る。リポジトリには、値をダミーにした `config.sample.php` だけを置く）
-
-```php
-<?php
-return [
-    'db_name' => 'attendance_training',
-    'db_host' => 'localhost',
-    'db_user' => 'attendance_app',
-    'db_pass' => 'ここにパスワード',
-];
-```
-
 **ファイル：`src/errors.php`**（共通のエラー処理。想定外の例外を、記録して定型の文を出す）
 
 ```php
@@ -95,13 +83,11 @@ set_exception_handler(function (\Throwable $e) {
 <?php
 include_once(__DIR__ . '/errors.php');
 
-$config = require('/var/www/attendance_private/config.php');
-
 try {
     $pdo = new PDO(
-        'mysql:dbname=' . $config['db_name'] . ';host=' . $config['db_host'] . ';charset=utf8mb4',
-        $config['db_user'],
-        $config['db_pass'],
+        'mysql:dbname=attendance_training;host=localhost;charset=utf8mb4',
+        'attendance_app',
+        'ここにパスワード',
         [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
