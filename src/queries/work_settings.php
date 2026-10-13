@@ -12,5 +12,17 @@ function fetchWorkSettings(PDO $pdo): array
     // 4. execute() して、fetch() で1行取得する
     // 5. 取得できなかった（false）ときは、例外を投げる：throw new RuntimeException('勤務設定がありません');
     // 6. 取得した行（連想配列）を return する
-    throw new RuntimeException('fetchWorkSettings は未実装です');
+    
+    // throw new RuntimeException('fetchWorkSettings は未実装です');
+
+    $sql = 'SELECT standard_start, standard_end, lunch_start, lunch_end FROM work_settings WHERE id = :id';
+    $stmt = $pdo->prepare($sql);
+    $id = 1;
+    $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row === false) {
+        throw new RuntimeException('勤務設定がありません');
+    }
+    return $row;
 }
