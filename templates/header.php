@@ -1,7 +1,8 @@
 <?php
 // 画面の共通の上部（<head> と、画面上部のヘッダー）
-// 使う前に $pageTitle（画面の名前）を用意しておく
+// 使う前に $pageTitle（画面の名前）を用意しておく。ログイン中の画面では $currentUser（requireLogin() の戻り値）も用意する
 $pageTitle = $pageTitle ?? '';
+$currentUser = $currentUser ?? null;
 ?>
 <!DOCTYPE html>
 <html lang="ja">
@@ -24,4 +25,18 @@ $pageTitle = $pageTitle ?? '';
             <span class="material-symbols-outlined app-header__icon" aria-hidden="true">schedule</span>
             <span class="app-header__name">勤怠管理</span>
         </a>
+        <?php if ($currentUser !== null): ?>
+            <div class="app-header__user">
+                <div class="app-header__profile">
+                    <div class="app-header__user-name"><?= h($currentUser['name']) ?></div>
+                    <?php if ($currentUser['department_name'] !== ''): ?>
+                        <div class="app-header__department"><?= h($currentUser['department_name']) ?></div>
+                    <?php endif; ?>
+                </div>
+                <form method="post" action="<?= h(appUrl('logout.php')) ?>">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <button class="button button--outline" type="submit">ログアウト</button>
+                </form>
+            </div>
+        <?php endif; ?>
     </header>
