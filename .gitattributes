@@ -1,0 +1,11 @@
+# 改行コードを LF に統一する（決定事項 D-038）
+* text=auto eol=lf
+
+# 画像などは、改行コードを変換しない
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
