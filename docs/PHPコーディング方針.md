@@ -111,8 +111,10 @@ try {
 
 ```php
 <?php
-function h($value) {
-    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+function h($value)
+{
+    // NULL は空文字にする（PHP 8.1 以降、htmlspecialchars に NULL を渡すと非推奨の警告が出るため）
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 ```
 

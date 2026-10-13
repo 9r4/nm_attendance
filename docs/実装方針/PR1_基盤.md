@@ -1,6 +1,6 @@
 # 実装 PR 1：基盤（方針・依頼者の承認待ち）
 
-状態: **案（依頼者の承認待ち）**。承認後に、Claude が作業ブランチに「枠」をプッシュする（運用ルール2、D-047）。
+状態: **承認済み（2026-10-13。D-055）**。作業ブランチ **`claude/pr1-foundation`** に、Claude の担当部分と、依頼者が書く2ファイルの枠をプッシュ済み。**依頼者が中身を書いてプッシュする番**。
 
 ## 1. 目的
 
@@ -94,8 +94,19 @@ function fetchWorkSettings(PDO $pdo): array
 - Claude の確認（4章）がすべて通る。
 - 依頼者が PR を承諾し、スカッシュマージする。
 
+## 5-2. Claude の作業結果（2026-10-13、枠のプッシュ時点）
+
+- 追加：`.gitattributes`、`.gitignore`、`src/errors.php`、`src/functions.php`（`h()`、`appUrl()`、`formatTime()`）、`templates/header.php`・`footer.php`、`css/style.css`、`index.php`（仮のメイン画面）。枠：`src/dbconnect.php`、`src/queries/work_settings.php`（処理の流れのコメント付き）。削除：試作ソース7ファイル。
+- 確認（Claude の環境。WSL と同じく `/attendance/` の下に置いた形で、PHP の組み込みサーバー＋MySQL 8.0.46）：
+  - 枠のまま開くと、500＋定型の文（理由はログに記録）。
+  - 検証用に仮の中身を入れると（コミットしない）、始業 09:00／終業 18:00／昼休憩 12:00〜13:00 が表示され、CSS は `/attendance/css/style.css` で読み込める。PHP の警告は 0 件。
+  - 勤務設定の行が無い・DB に接続できない場合は、500＋定型の文のみ。
+  - `h()` のエスケープと NULL の扱い、`appUrl()` の URL（`/attendance/` の下とドキュメントルート直下の両方）。
+  - ブラウザ（Playwright）で PC・スマホの幅を表示し、レイアウトの崩れと横スクロールが無いこと。
+- 未確認：外部の CDN（`ress`・IBM Plex Sans JP・Material Symbols）は、Claude の環境から読み込めないため、見た目への反映は依頼者の WSL で確認する（T-022）。CDN が読めない場合でも崩れないよう、余白の初期化と、アイコンの文字のはみ出し対策を入れた。
+
 ## 6. 確認したいこと
 
-1. この方針（範囲・担当）でよいか。
+1. ~~この方針（範囲・担当）でよいか~~ → 承認（D-055）。
 2. ~~関数名の付け方~~ → 先頭が小文字で、単語の区切りを大文字にする書き方（`fetchWorkSettings`）に決定（D-053）。
-3. DB の関数を置く場所：`src/queries/`（テーブルごとのファイル）でよいか。
+3. ~~DB の関数を置く場所~~ → `src/queries/`（テーブルごとのファイル）で承認（D-055）。
