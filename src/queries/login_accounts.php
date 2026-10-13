@@ -11,7 +11,14 @@ function fetchLoginAccount(PDO $pdo, string $loginId): ?array {
     // 4. execute() して、fetch() で1行取得する
     // 5. 見つからなかったときは fetch() が false を返すので、null を返す（見つかったら、その行を返す）
     //    例：return $row === false ? null : $row;
-    throw new RuntimeException('fetchLoginAccount は未実装です');
+
+    $sql = 'SELECT login_id, employee_id, password_hash, role, approval_scope, is_active FROM login_accounts WHERE login_id = :login_id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':login_id', $loginId, PDO::PARAM_STR);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
+    // throw new RuntimeException('fetchLoginAccount は未実装です');
 }
 
 // 最終ログイン日時を、今の日時に更新する
@@ -21,5 +28,9 @@ function updateLastLoginAt(PDO $pdo, string $loginId): void {
     // 2. $pdo->prepare() で準備する
     // 3. :login_id に $loginId を渡す（型は PDO::PARAM_STR）
     // 4. execute() する（UPDATE なので、fetch() はしない。戻り値も無い）
-    throw new RuntimeException('updateLastLoginAt は未実装です');
+    $sql = 'UPDATE login_accounts SET last_login_at = NOW() WHERE login_id = :login_id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':login_id', $loginId, PDO::PARAM_STR);
+    $stmt->execute();
+    // throw new RuntimeException('updateLastLoginAt は未実装です');
 }
