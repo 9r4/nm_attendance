@@ -22,7 +22,7 @@
 | `src/errors.php` | 共通のエラー処理（[PHPコーディング方針.md](../PHPコーディング方針.md) 4章の見本のとおり） | Claude |
 | `src/functions.php` | `h()`（画面に出す値のエスケープ） | Claude |
 | **`src/dbconnect.php`** | **DB 接続。パスワードを直接書く（D-045）** | **依頼者** |
-| **`src/queries/work_settings.php`** | **勤務設定を取得する関数 `fetch_work_settings()`** | **依頼者**（枠は Claude） |
+| **`src/queries/work_settings.php`** | **勤務設定を取得する関数 `fetchWorkSettings()`** | **依頼者**（枠は Claude） |
 | `templates/header.php`、`templates/footer.php` | 画面の共通レイアウト（`ress`、フォント、Material Symbols、`css/style.css` の読み込み、ヘッダー） | Claude |
 | `css/style.css` | CSS の土台。画面モックの配色・文字・角丸などを、CSS 変数（`--color-primary` など）で定義 | Claude |
 | `index.php` | **仮のメイン画面**。共通レイアウトを使い、勤務設定（始業・終業・昼休憩）を DB から取得して表示する（PR 3 で本来のメイン画面に置き換える） | Claude |
@@ -39,22 +39,42 @@
 - 必須：`include_once(__DIR__ . '/errors.php');`、`PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION`、`PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC`、`PDO::ATTR_EMULATE_PREPARES => false`、`SET time_zone = '+09:00'`、接続失敗時は `error_log()` と定型の文。
 - 接続した結果は、変数 `$pdo` に入れる（ほかのファイルは `$pdo` を使う）。
 
-### 3-2. `src/queries/work_settings.php` の `fetch_work_settings()`
+### 3-2. `src/queries/work_settings.php` の `fetchWorkSettings()`
 
 | 項目 | 内容 |
 | --- | --- |
-| 関数 | `function fetch_work_settings(PDO $pdo): array` |
+| 関数 | `function fetchWorkSettings(PDO $pdo): array` |
 | 引数 | `$pdo`：`dbconnect.php` で作った接続 |
 | 戻り値 | 勤務設定の1行の連想配列：`['standard_start' => '09:00:00', 'standard_end' => '18:00:00', 'lunch_start' => '12:00:00', 'lunch_end' => '13:00:00']` |
 | SQL | `work_settings` テーブルの `id = 1` の行から、上の4列を取得する（プレースホルダ＋`bindParam`、型は `PDO::PARAM_INT`） |
 | 行が無い場合 | 例外を投げる（`throw new RuntimeException('勤務設定がありません');`）。共通のエラー処理で、定型の文が表示される |
 
-Claude は、この関数の「枠」（関数の宣言と、`// TODO` のコメント）だけを書いてプッシュする。中身（SQL と取得）を、依頼者が書く。
+Claude は、この関数の「枠」（関数の宣言と、**処理の流れを書いたコメント**）だけを書いてプッシュする（D-054）。中身（SQL と取得）を、依頼者が書く。枠は、次のような形になる。
+
+```php
+<?php
+// 勤務設定（work_settings テーブル）を読み書きする関数
+
+function fetchWorkSettings(PDO $pdo): array
+{
+    // TODO（依頼者）：勤務設定（work_settings の id = 1 の行）を取得して返す
+    // 1. SQL を書く：work_settings から standard_start, standard_end, lunch_start, lunch_end を取得（条件は id = :id）
+    // 2. $pdo->prepare() で準備する
+    // 3. :id に 1 を渡す（bindParam は変数を渡すので、$id = 1; を用意。型は PDO::PARAM_INT）
+    // 4. execute() して、fetch() で1行取得する
+    // 5. 取得できなかった（false）ときは、例外を投げる：throw new RuntimeException('勤務設定がありません');
+    // 6. 取得した行（連想配列）を return する
+    throw new RuntimeException('fetchWorkSettings は未実装です');
+}
+```
+
+- 最後の `throw` は、中身を書くまでの仮の行（書いたら消す）。書く前に画面を開くと、定型のエラー画面になる。
+- `src/dbconnect.php` の枠も、同じように、処理の流れをコメントで書いておく。
 
 ### 3-3. 確認方法（依頼者の WSL）
 
 1. 作業ブランチに切り替える（[開発環境手順書.md](../開発環境手順書.md) 5-1）。
-2. `src/dbconnect.php` と `fetch_work_settings()` を書いて保存する。
+2. `src/dbconnect.php` と `fetchWorkSettings()` を書いて保存する。
 3. ブラウザで `http://localhost/attendance/` を開き、仮のメイン画面に「始業 09:00／終業 18:00／昼休憩 12:00〜13:00」と表示されれば完成。
 4. コミットしてプッシュし、Claude に伝える（5-3）。
 
@@ -77,5 +97,5 @@ Claude は、この関数の「枠」（関数の宣言と、`// TODO` のコメ
 ## 6. 確認したいこと
 
 1. この方針（範囲・担当）でよいか。
-2. 関数名の付け方：既存コードの変数名（`$error_message` など）に合わせて、**小文字とアンダースコア**（`fetch_work_settings`）にする案。ほかの書き方（`fetchWorkSettings`）がよければ教えてほしい。
+2. ~~関数名の付け方~~ → 先頭が小文字で、単語の区切りを大文字にする書き方（`fetchWorkSettings`）に決定（D-053）。
 3. DB の関数を置く場所：`src/queries/`（テーブルごとのファイル）でよいか。
