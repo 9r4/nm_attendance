@@ -197,6 +197,13 @@ textarea {
     color: var(--color-text);
 }
 
+.button--danger {
+    background: var(--color-danger);
+    border: 1px solid var(--color-danger);
+    color: #FFFFFF;
+    font-weight: 700;
+}
+
 .button--block {
     width: 100%;
     min-height: 52px;
@@ -873,6 +880,13 @@ textarea {
     font-variant-numeric: tabular-nums;
 }
 
+.request-item__cancel {
+    align-self: flex-end;
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 14px;
+}
+
 .request-item__note {
     color: var(--color-text-muted);
     font-size: 14px;
@@ -917,6 +931,11 @@ textarea {
     color: var(--color-error-text);
     font-size: 14px;
     font-weight: 500;
+}
+
+/* 申請中で打刻できないときの案内（D-063） */
+.punch-lock {
+    margin-top: 16px;
 }
 
 /* メイン画面の簡単残業申請 */

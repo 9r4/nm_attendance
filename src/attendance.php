@@ -20,6 +20,9 @@ const ATTENDANCE_STATUS_LABELS = [
     'finished' => '退勤済み',
 ];
 
+// 今日の修正・新規登録が申請中のときの案内（D-063）
+const PUNCH_LOCKED_MESSAGE = '本日の修正申請が申請中のため、打刻できません。打刻する場合は、記録表示で申請を取り消してください。';
+
 // 押したときの扱い
 const ACTION_RECORD = 'record';            // そのまま記録する
 const ACTION_OVERWRITE = 'overwrite';      // 上書き確認のあとで記録する
@@ -94,7 +97,8 @@ function overtimeAvailable(?array $attendance, string $standardEnd): bool {
 
 // 画面に出す値（状態・本日の記録・押せるボタン）。メイン画面の表示と、API の応答の両方で使う
 // $standardEnd（標準終了時刻 '18:00:00'）を渡すと、簡単残業申請のボタンを押せるか（overtime）も入れる
-function attendanceView(?array $attendance, ?string $standardEnd = null): array {
+// $locked：今日の修正・新規登録が申請中で、打刻を止めているか（D-063）。true なら、出勤・退勤・休憩のボタンをすべて押せなくする
+function attendanceView(?array $attendance, ?string $standardEnd = null, bool $locked = false): array {
     $status = attendanceStatus($attendance);
     $breakStart = $attendance['break_start_at'] ?? null;
     $breakEnd = $attendance['break_end_at'] ?? null;
@@ -107,7 +111,7 @@ function attendanceView(?array $attendance, ?string $standardEnd = null): array 
 
     $buttons = [];
     foreach (array_keys(ATTENDANCE_ACTION_LABELS) as $action) {
-        $buttons[$action] = actionMode($attendance, $action) !== ACTION_UNAVAILABLE;
+        $buttons[$action] = !$locked && actionMode($attendance, $action) !== ACTION_UNAVAILABLE;
     }
 
     if ($standardEnd !== null) {
@@ -121,13 +125,15 @@ function attendanceView(?array $attendance, ?string $standardEnd = null): array 
         'checkOut' => formatClock($attendance['check_out_at'] ?? null),
         'break' => $breakLabel,
         'buttons' => $buttons,
+        'locked' => $locked,
     ];
 }
 
 // ボタンを押したときの処理。$overwrite は、上書き確認で「上書きする」を押したとき true
 // $standardEnd：標準終了時刻（画面に返す、簡単残業申請のボタンの判断に使う）
+// $locked：今日の修正・新規登録が申請中か（D-063）。申請中は打刻しない（承認で申請の値に上書きされ、押した打刻が消えるため）
 // 戻り値：['result' => recorded／overwritten／confirm／unavailable／conflict, 'message' => 通知の文, 'confirm' => 確認の文（confirm のとき）, 'view' => attendanceView()]
-function performAttendanceAction(PDO $pdo, string $employeeId, string $action, bool $overwrite, int $now, ?string $standardEnd = null): array {
+function performAttendanceAction(PDO $pdo, string $employeeId, string $action, bool $overwrite, int $now, ?string $standardEnd = null, bool $locked = false): array {
     if (!isset(ATTENDANCE_ACTION_LABELS[$action])) {
         throw new InvalidArgumentException('知らない操作です: ' . $action);
     }
@@ -136,6 +142,13 @@ function performAttendanceAction(PDO $pdo, string $employeeId, string $action, b
     $time = minuteTimestamp($now);
 
     $attendance = fetchAttendance($pdo, $employeeId, $workDate);
+    if ($locked) {
+        return [
+            'result' => 'unavailable',
+            'message' => PUNCH_LOCKED_MESSAGE,
+            'view' => attendanceView($attendance, $standardEnd, true),
+        ];
+    }
     $mode = actionMode($attendance, $action);
 
     if ($mode === ACTION_UNAVAILABLE) {

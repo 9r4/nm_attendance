@@ -150,6 +150,24 @@ final class RequestsTest extends TestCase {
         $this->assertSame([['label' => '残業終了', 'before' => 'なし', 'after' => '20:00']], $view['changes']);
     }
 
+    // 申請中の打刻の制限と、取り消し（D-063）
+    public function testPunchLockAndCancel(): void {
+        $working = self::attendance('09:00', null, null, null, '2026-10-15');
+        $view = attendanceView($working, '18:00:00', true);
+        $this->assertTrue($view['locked']);
+        $this->assertSame(['check_in' => false, 'check_out' => false, 'break_start' => false, 'break_end' => false, 'overtime' => false], $view['buttons']);
+        $unlocked = attendanceView($working, '18:00:00');
+        $this->assertFalse($unlocked['locked']);
+        $this->assertTrue($unlocked['buttons']['check_out']);
+        // 打刻を止めても、残業申請のボタンの判断は変わらない（退勤済みで 18:00 より後）
+        $this->assertTrue(attendanceView(self::attendance('09:00', '19:00', null, null, '2026-10-15'), '18:00:00', true)['buttons']['overtime']);
+
+        $pending = requestView(self::request('correction', [], [], 'pending'));
+        $this->assertSame([1, true], [$pending['id'], $pending['canCancel']]);
+        $this->assertFalse(requestView(self::request('correction', [], [], 'approved'))['canCancel']);
+        $this->assertFalse(requestView(self::request('overtime', [], [], 'rejected'))['canCancel']);
+    }
+
     public function testBadgeAndPending(): void {
         $approved = self::request('correction', [], [], 'approved');
         $rejected = self::request('overtime', [], [], 'rejected');

@@ -137,12 +137,25 @@ include(__DIR__ . '/../templates/header.php');
                 <h3 class="request-list__title">申請</h3>
                 <ul class="request-list__items" id="day-request-items"></ul>
             </section>
-            <p class="alert alert--info" id="day-pending" hidden>申請中のため、承認・却下されるまで新しい申請はできません。</p>
+            <p class="alert alert--info" id="day-pending" hidden>申請中のため、新しい申請はできません。新しく申請する場合は、申請中の申請を取り消してください。</p>
             <div class="dialog__actions">
                 <button class="button button--outline" type="submit" value="close">閉じる</button>
                 <button class="button button--primary" type="button" id="day-request" hidden></button>
             </div>
         </form>
+    </dialog>
+
+    <!-- 申請の取り消しの確認（D-063） -->
+    <dialog class="dialog" id="cancel-dialog" aria-labelledby="cancel-title">
+        <div class="dialog__body">
+            <h2 class="dialog__title" id="cancel-title">申請を取り消しますか？</h2>
+            <p class="dialog__text" id="cancel-text"></p>
+            <p class="alert alert--error" id="cancel-error" role="alert" hidden></p>
+            <div class="dialog__actions">
+                <button class="button button--outline" type="button" id="cancel-back">戻る</button>
+                <button class="button button--danger" type="button" id="cancel-submit">取り消す</button>
+            </div>
+        </div>
     </dialog>
 
     <!-- 修正・新規登録の申請ウィンドウ（種別の欄は置かない。D-051） -->

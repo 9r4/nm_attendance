@@ -73,6 +73,8 @@
             button.disabled = !view.buttons[button.dataset.action];
         });
         overtimeButton.disabled = !view.buttons.overtime;
+        // 今日の修正・新規登録が申請中のときは、打刻できないことを出す（D-063）
+        document.getElementById('punch-lock').hidden = !view.locked;
     }
 
     function showToast(message, isError) {

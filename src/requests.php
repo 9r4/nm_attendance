@@ -22,7 +22,7 @@ const REQUEST_STATUS_LABELS = [
 const REQUEST_REASON_MAX_LENGTH = 500;
 
 // BR-002（同じ申請の重複）の文
-const REQUEST_DUPLICATE_CORRECTION = 'この日には、申請中の申請があります。承認・却下されるまで、新しい申請はできません。';
+const REQUEST_DUPLICATE_CORRECTION = 'この日には、申請中の申請があります。新しく申請する場合は、申請中の申請を取り消してください（承認・却下されるまでは、新しい申請はできません）。';
 const REQUEST_DUPLICATE_OVERTIME = '本日分の残業申請は、すでに申請中です。';
 
 // 画面から送られた値を、文字列として取り出す（無い・文字列でない場合は ''）
@@ -226,6 +226,7 @@ function requestChanges(array $request): array {
 // 画面に出す申請の内容
 function requestView(array $request): array {
     return [
+        'id' => (int) $request['id'],
         'type' => requestTypeLabel($request),
         'status' => $request['status'],
         'statusLabel' => REQUEST_STATUS_LABELS[$request['status']],
@@ -233,6 +234,7 @@ function requestView(array $request): array {
         'changes' => requestChanges($request),
         'reason' => $request['reason'] ?? '',
         'reviewComment' => $request['review_comment'] ?? '',
+        'canCancel' => $request['status'] === 'pending',
     ];
 }
 
@@ -259,3 +261,21 @@ function hasPendingCorrection(array $requests): bool {
     }
     return false;
 }
+
+// その日の修正・新規登録が申請中か（申請中は、メイン画面の打刻を止める。D-063）
+function isCorrectionPending(PDO $pdo, string $employeeId, string $date): bool {
+    return hasPendingCorrection(fetchMonthlyRequests($pdo, $employeeId, $date, $date));
+}
+
+// 自分の申請中の申請を取り消す（削除する。D-063）。戻り値は submitCorrectionRequest() と同じ形
+function submitCancelRequest(PDO $pdo, array $user, array $input): array {
+    $requestId = inputString($input, 'request_id');
+    if (!preg_match('/\A[1-9]\d{0,18}\z/', $requestId)) {
+        return ['ok' => false, 'errors' => ['form' => '取り消す申請が正しくありません。画面を読み込み直してください。']];
+    }
+    if (!deletePendingRequest($pdo, (int) $requestId, $user['employee_id'])) {
+        return ['ok' => false, 'errors' => ['form' => 'この申請は、すでに承認・却下されたか、取り消されています。画面を読み込み直してください。']];
+    }
+    return ['ok' => true, 'message' => '申請を取り消しました。'];
+}
+

@@ -5,7 +5,7 @@ include_once(__DIR__ . '/src/functions.php');
 include_once(__DIR__ . '/src/dbconnect.php');
 include_once(__DIR__ . '/src/auth.php');
 include_once(__DIR__ . '/src/queries/work_settings.php');
-include_once(__DIR__ . '/src/attendance.php');
+include_once(__DIR__ . '/src/requests.php');
 
 $currentUser = requireLogin($pdo);
 $isEmployee = $currentUser['role'] !== ROLE_SYSTEM_ADMIN;
@@ -17,7 +17,10 @@ $dateLabel = date('Y年n月j日', $now) . '（' . $weekdays[(int) date('w', $now
 $view = null;
 if ($isEmployee) {
     $standardEnd = fetchWorkSettings($pdo)['standard_end'];
-    $view = attendanceView(fetchAttendance($pdo, $currentUser['employee_id'], workDateOf($now)), $standardEnd);
+    $today = workDateOf($now);
+    // 今日の修正・新規登録が申請中なら、打刻を止める（D-063）
+    $locked = isCorrectionPending($pdo, $currentUser['employee_id'], $today);
+    $view = attendanceView(fetchAttendance($pdo, $currentUser['employee_id'], $today), $standardEnd, $locked);
     $headerStatus = $view;
 }
 
@@ -53,6 +56,11 @@ include(__DIR__ . '/templates/header.php');
                     <dd id="today-break"><?= h($view['break']) ?></dd>
                 </div>
             </dl>
+
+            <p class="alert alert--info punch-lock" id="punch-lock" role="status"<?= $view['locked'] ? '' : ' hidden' ?>>
+                <?= h(PUNCH_LOCKED_MESSAGE) ?>
+                <a href="<?= h(appUrl('records/')) ?>">記録表示へ</a>
+            </p>
 
             <div class="punch">
                 <?php foreach (ATTENDANCE_ACTION_LABELS as $action => $label): ?>

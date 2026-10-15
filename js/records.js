@@ -72,6 +72,16 @@
                 item.append(note);
             }
         });
+
+        // 申請中の申請は、取り消せる（D-063）
+        if (request.canCancel) {
+            const cancel = document.createElement('button');
+            cancel.type = 'button';
+            cancel.className = 'button button--outline request-item__cancel';
+            cancel.textContent = '取り消す';
+            cancel.addEventListener('click', () => openCancel(request));
+            item.append(cancel);
+        }
         return item;
     }
 
@@ -158,7 +168,7 @@
         const pending = Boolean(day && day.pendingCorrection);
         submitButton.disabled = pending;
         if (pending) {
-            showErrors({ form: '申請中のため、承認・却下されるまで新しい申請はできません。' });
+            showErrors({ form: '申請中のため、新しい申請はできません。新しく申請する場合は、申請中の申請を取り消してください。' });
         }
     }
 
@@ -231,5 +241,65 @@
         }
         showErrors(data.errors);
         submitButton.disabled = false;
+    });
+
+    // ---- 申請の取り消し（D-063）：確認のあと api/requests.php に送り、受け付けられたら読み込み直す ----
+    const cancelDialog = element('cancel-dialog');
+    const cancelSubmit = element('cancel-submit');
+    let cancelTarget = null;
+
+    function openCancel(request) {
+        cancelTarget = request;
+        element('cancel-text').textContent = `${days[currentDate].label}の${request.type}の申請を取り消します。取り消した申請は、元に戻せません。`;
+        element('cancel-error').hidden = true;
+        cancelSubmit.disabled = false;
+        dayDialog.close();
+        cancelDialog.showModal();
+    }
+
+    element('cancel-back').addEventListener('click', () => cancelDialog.close());
+    cancelDialog.addEventListener('click', (event) => {
+        if (event.target === cancelDialog) {
+            cancelDialog.close();
+        }
+    });
+
+    function showCancelError(message) {
+        const error = element('cancel-error');
+        error.textContent = message;
+        error.hidden = false;
+        cancelSubmit.disabled = false;
+    }
+
+    cancelSubmit.addEventListener('click', async () => {
+        cancelSubmit.disabled = true;
+        const body = new FormData();
+        body.append('csrf_token', calendar.dataset.csrfToken);
+        body.append('type', 'cancel');
+        body.append('request_id', String(cancelTarget.id));
+        try {
+            const response = await fetch(calendar.dataset.apiUrl, {
+                method: 'POST',
+                body,
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+            });
+            if (response.status === 401) {
+                window.location.href = calendar.dataset.loginUrl;
+                return;
+            }
+            const data = await response.json().catch(() => null);
+            if (!response.ok || data === null) {
+                showCancelError(data?.message ?? 'エラーが発生しました。画面を読み込み直して、もう一度お試しください。');
+                return;
+            }
+            if (data.ok) {
+                window.location.reload();
+                return;
+            }
+            showCancelError(data.errors.form);
+        } catch (error) {
+            showCancelError('通信できませんでした。接続を確かめて、もう一度お試しください。');
+        }
     });
 })();
