@@ -145,7 +145,7 @@ function fetchProcessedRequests(PDO $pdo, string $approverId, ?int $departmentId
     // 4. prepare → bindValue（:limit は数値なので PDO::PARAM_INT）
     // 5. execute して fetchAll() の結果を返す
     // throw new RuntimeException('fetchProcessedRequests は未実装です');
-    $sql = 'SELECT r.id, r.employee_id, r.target_date, r.request_type, r.requested_check_in_at, r.requested_check_out_at, r.requested_break_start_at, r.requested_break_end_at, r.requested_overtime_end_at, r.original_check_in_at, r.original_check_out_at, r.original_break_start_at, r.original_break_end_at, r.original_overtime_end_at, r.reason, e.name, d.name AS department_name, r.status, r.review_comment, r.reviewed_at, rv.name AS reviewer_name FROM attendance_requests r JOIN employees e ON e.employee_id = r.employee_id JOIN departments d ON d.id = e.department_id LEFT JOIN employees rv ON rv.employee_id = r.reviewer_id WHERE r.status <> \'pending\' AND r.employee_id <> :approver_id';
+    $sql = 'SELECT r.id, r.employee_id, r.target_date, r.request_type, r.requested_check_in_at, r.requested_check_out_at, r.requested_break_start_at, r.requested_break_end_at, r.requested_overtime_end_at, r.original_check_in_at, r.original_check_out_at, r.original_break_start_at, r.original_break_end_at, r.original_overtime_end_at, r.reason, r.created_at, e.name, d.name AS department_name, r.status, r.review_comment, r.reviewed_at, rv.name AS reviewer_name FROM attendance_requests r JOIN employees e ON e.employee_id = r.employee_id JOIN departments d ON d.id = e.department_id LEFT JOIN employees rv ON rv.employee_id = r.reviewer_id WHERE r.status <> \'pending\' AND r.employee_id <> :approver_id';
     if ($departmentId !== null) {
         $sql .= ' AND e.department_id = :department_id';
     }
