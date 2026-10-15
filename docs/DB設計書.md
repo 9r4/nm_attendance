@@ -61,7 +61,7 @@ erDiagram
 | department_id | INT FK→departments | NOT NULL | 部署 |
 | joined_on | DATE | NOT NULL | 入社日 |
 | left_on | DATE | NULL | 退社日（在籍中は NULL） |
-| employment_status | VARCHAR(20) | NOT NULL | 在籍状態。**初期値 `active`（在籍）**。他の値（退職など）は運用に合わせて追加する |
+| employment_status | VARCHAR(20) | NOT NULL | 在籍状態。**初期値 `active`（在籍）**、`retired`（退職。D-067）。他の値は運用に合わせて追加する |
 | created_at / updated_at | DATETIME | NOT NULL | 作成・更新日時 |
 
 ### 3-2. login_accounts
@@ -152,7 +152,7 @@ erDiagram
 ### 社員コードの採番ルール（D-013）
 
 - 形式：作成年4桁＋3桁の通番。年が変わると通番は 001 から。
-- `employee_id_sequences` の当年の行を `SELECT … FOR UPDATE` で確保し、`last_number` を +1 して n とする（同時作成でも重複しない）。
+- `employee_id_sequences` の当年の行を `INSERT … ON DUPLICATE KEY UPDATE` で「無ければ 1 で作り、あれば +1」し、同じトランザクションの中で読み直した `last_number` を n とする（同時作成でも重複しない。行はトランザクションの終わりまでロックされる）。当初の「`SELECT … FOR UPDATE` で確保して +1」は、その年の最初の1人を同時に作るとデッドロックになるため変更した（D-067）。
 - n ≤ 999：`yyyy` ＋ n を3桁ゼロ埋め（例：2026001, 2026999）。
 - n ≥ 1000：m = n − 1000 とし、英字 = `A`＋(m ÷ 99 の商)、数字 = (m ÷ 99 の余り)＋1 を2桁ゼロ埋め（例：1000番目＝2026A01、1099番目＝2026A99、1100番目＝2026B01）。上限は `Z99`（年間3,573人）。
 - 形式の検証：`^[0-9]{4}([0-9]{3}|[A-Z][0-9]{2})$`
