@@ -115,9 +115,20 @@ function fetchPendingRequests(PDO $pdo, string $approverId, ?int $departmentId):
     // 4. prepare → bindValue（:approver_id は PARAM_STR。$departmentId が null でなければ :department_id も。こちらは PARAM_INT）
     //    （SQL に無いプレースホルダを bindValue すると、エラーになる。部署の条件を足したときだけ渡す）
     // 5. execute して fetchAll() の結果を返す
-    throw new RuntimeException('fetchPendingRequests は未実装です');
+    // throw new RuntimeException('fetchPendingRequests は未実装です');
+    $sql = 'SELECT r.id, r.employee_id, r.target_date, r.request_type, r.requested_check_in_at, r.requested_check_out_at, r.requested_break_start_at, r.requested_break_end_at, r.requested_overtime_end_at, r.original_check_in_at, r.original_check_out_at, r.original_break_start_at, r.original_break_end_at, r.original_overtime_end_at, r.reason, r.created_at, e.name, d.name AS department_name, a.check_out_at AS current_check_out_at FROM attendance_requests r JOIN employees e ON e.employee_id = r.employee_id JOIN departments d ON d.id = e.department_id LEFT JOIN attendances a ON a.employee_id = r.employee_id AND a.work_date = r.target_date WHERE r.status = \'pending\' AND r.employee_id <> :approver_id';
+    if ($departmentId !== null) {
+        $sql .= ' AND e.department_id = :department_id';
+    }
+    $sql .= ' ORDER BY r.created_at, r.id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':approver_id', $approverId, PDO::PARAM_STR);
+    if ($departmentId !== null) {
+        $stmt->bindValue(':department_id', $departmentId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
-
 // 承認範囲の、承認・却下された申請を、新しい順に $limit 件取得する（承認画面の「処理済み」）
 // 戻り値：行の配列。申請の列・申請者の列に加えて status、review_comment、reviewed_at、reviewer_name（処理した管理者の氏名）
 function fetchProcessedRequests(PDO $pdo, string $approverId, ?int $departmentId, int $limit): array {
@@ -133,7 +144,20 @@ function fetchProcessedRequests(PDO $pdo, string $approverId, ?int $departmentId
     // 3. 最後に ' ORDER BY r.reviewed_at DESC, r.id DESC LIMIT :limit' を足す
     // 4. prepare → bindValue（:limit は数値なので PDO::PARAM_INT）
     // 5. execute して fetchAll() の結果を返す
-    throw new RuntimeException('fetchProcessedRequests は未実装です');
+    // throw new RuntimeException('fetchProcessedRequests は未実装です');
+    $sql = 'SELECT r.id, r.employee_id, r.target_date, r.request_type, r.requested_check_in_at, r.requested_check_out_at, r.requested_break_start_at, r.requested_break_end_at, r.requested_overtime_end_at, r.original_check_in_at, r.original_check_out_at, r.original_break_start_at, r.original_break_end_at, r.original_overtime_end_at, r.reason, e.name, d.name AS department_name, r.status, r.review_comment, r.reviewed_at, rv.name AS reviewer_name FROM attendance_requests r JOIN employees e ON e.employee_id = r.employee_id JOIN departments d ON d.id = e.department_id LEFT JOIN employees rv ON rv.employee_id = r.reviewer_id WHERE r.status <> \'pending\' AND r.employee_id <> :approver_id';
+    if ($departmentId !== null) {
+        $sql .= ' AND e.department_id = :department_id';
+    }
+    $sql .= ' ORDER BY r.reviewed_at DESC, r.id DESC LIMIT :limit';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':approver_id', $approverId, PDO::PARAM_STR);
+    if ($departmentId !== null) {
+        $stmt->bindValue(':department_id', $departmentId, PDO::PARAM_INT);
+    }
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // 承認・却下の前に、申請を1件取得して、行をロックする（トランザクションの中で呼ぶ。トランザクションは呼び出し側が行う）
@@ -149,7 +173,13 @@ function fetchRequestForUpdate(PDO $pdo, int $requestId): ?array {
     //    （末尾の FOR UPDATE：トランザクションが終わるまで、ほかの人がこの申請を変えられないようにする。2人が同時に承認しても、二重に処理しない）
     // 2. prepare → bindValue（:id は PDO::PARAM_INT） → execute → fetch()
     // 3. 見つからなければ null、見つかればその行を返す
-    throw new RuntimeException('fetchRequestForUpdate は未実装です');
+    // throw new RuntimeException('fetchRequestForUpdate は未実装です');
+    $sql = 'SELECT r.id, r.employee_id, r.target_date, r.request_type, r.requested_check_in_at, r.requested_check_out_at, r.requested_break_start_at, r.requested_break_end_at, r.requested_overtime_end_at, r.status, e.name, e.department_id FROM attendance_requests r JOIN employees e ON e.employee_id = r.employee_id WHERE r.id = :id FOR UPDATE';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':id', $requestId, PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
 }
 
 // 申請を「承認済み（approved）」か「却下（rejected）」にする（処理した管理者・日時・コメントを記録）
@@ -161,6 +191,12 @@ function updateRequestStatus(PDO $pdo, int $requestId, string $status, string $r
     //    WHERE id = :id AND status = 'pending'
     //    （status = 'pending' の条件で、処理済みの申請を二重に更新しない）
     // 2. prepare → bindValue（:id は PARAM_INT、ほかは PARAM_STR。null の comment もそのまま渡せる） → execute
-    throw new RuntimeException('updateRequestStatus は未実装です');
+    // throw new RuntimeException('updateRequestStatus は未実装です');
+    $sql = 'UPDATE attendance_requests SET status = :status, reviewer_id = :reviewer_id, review_comment = :review_comment, reviewed_at = NOW() WHERE id = :id AND status = \'pending\'';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':status', $status, PDO::PARAM_STR);
+    $stmt->bindValue(':reviewer_id', $reviewerId, PDO::PARAM_STR);
+    $stmt->bindValue(':review_comment', $comment, PDO::PARAM_STR);
+    $stmt->bindValue(':id', $requestId, PDO::PARAM_INT);
+    $stmt->execute();
 }
-
