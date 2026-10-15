@@ -1,9 +1,12 @@
 <?php
 // ハンバーガーメニュー（ほかの画面への移動）。templates/header.php から読み込む（ログイン中のみ）
-// 項目は権限ごとに出し分ける。承認（管理者）・システム管理者の画面は、PR 6・PR 7 で追加する
+// 項目は権限ごとに出し分ける（承認は管理者だけ）。システム管理者の画面は、PR 7 で追加する
 $menuItems = [['path' => '', 'label' => 'メイン画面']];
 if ($currentUser['role'] !== ROLE_SYSTEM_ADMIN) {
     $menuItems[] = ['path' => 'records/', 'label' => '記録表示'];
+}
+if ($currentUser['role'] === ROLE_MANAGER) {
+    $menuItems[] = ['path' => 'approvals/', 'label' => '承認'];
 }
 // 今いる画面の項目に印を付ける（index.php は、フォルダの URL と同じ扱い）
 $currentPath = preg_replace('#index\.php$#', '', parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '');

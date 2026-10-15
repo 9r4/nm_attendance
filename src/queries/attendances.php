@@ -122,3 +122,49 @@ function fetchMonthlyAttendances(PDO $pdo, string $employeeId, string $fromDate,
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
+// ---- PR 6（承認）：承認で勤怠に反映する関数（トランザクションの中で呼ぶ。トランザクションは呼び出し側が行う） ----
+
+// 修正・新規登録の承認：その日の4つの時刻を、すべて申請の値にする。その日の行が無ければ作る
+// $times：['check_in_at' => …, 'check_out_at' => …, 'break_start_at' => …, 'break_end_at' => …]（値は日時か null）
+function upsertAttendanceTimes(PDO $pdo, string $employeeId, string $workDate, array $times): void {
+    // TODO（依頼者）：行が無ければ追加し、あれば更新する（初めての INSERT … ON DUPLICATE KEY UPDATE）
+    // 1. SQL を書く：
+    //    INSERT INTO attendances (employee_id, work_date, check_in_at, check_out_at, break_start_at, break_end_at)
+    //    VALUES (:employee_id, :work_date, :check_in_at, :check_out_at, :break_start_at, :break_end_at) AS new
+    //    ON DUPLICATE KEY UPDATE check_in_at = new.check_in_at, check_out_at = new.check_out_at,
+    //      break_start_at = new.break_start_at, break_end_at = new.break_end_at
+    //    （その日の行がすでにある（一意制約 employee_id・work_date に当たる）ときは、追加の代わりに更新する。
+    //      AS new は、追加しようとした値に付ける別名。overtime_end_at は変えない）
+    // 2. prepare → bindValue（6 個。PARAM_STR。null もそのまま） → execute
+    // throw new RuntimeException('upsertAttendanceTimes は未実装です');
+    $sql = 'INSERT INTO attendances (employee_id, work_date, check_in_at, check_out_at, break_start_at, break_end_at)
+            VALUES (:employee_id, :work_date, :check_in_at, :check_out_at, :break_start_at, :break_end_at) AS new
+            ON DUPLICATE KEY UPDATE check_in_at = new.check_in_at, check_out_at = new.check_out_at,
+            break_start_at = new.break_start_at, break_end_at = new.break_end_at';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
+    $stmt->bindValue(':work_date', $workDate, PDO::PARAM_STR);
+    $stmt->bindValue(':check_in_at', $times['check_in_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':check_out_at', $times['check_out_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':break_start_at', $times['break_start_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':break_end_at', $times['break_end_at'], PDO::PARAM_STR);
+    $stmt->execute();
+}
+
+// 残業の承認：その日の承認済みの残業終了時刻（overtime_end_at）を、申請の値にする。その日の行が無ければ作る
+function upsertOvertimeEnd(PDO $pdo, string $employeeId, string $workDate, string $overtimeEndAt): void {
+    // TODO（依頼者）：upsertAttendanceTimes と同じ形
+    // 1. SQL を書く：
+    //    INSERT INTO attendances (employee_id, work_date, overtime_end_at) VALUES (:employee_id, :work_date, :overtime_end_at) AS new
+    //    ON DUPLICATE KEY UPDATE overtime_end_at = new.overtime_end_at
+    // 2. prepare → bindValue（3 個） → execute
+    // throw new RuntimeException('upsertOvertimeEnd は未実装です');
+    $sql = 'INSERT INTO attendances (employee_id, work_date, overtime_end_at) VALUES (:employee_id, :work_date, :overtime_end_at) AS new
+            ON DUPLICATE KEY UPDATE overtime_end_at = new.overtime_end_at';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
+    $stmt->bindValue(':work_date', $workDate, PDO::PARAM_STR);
+    $stmt->bindValue(':overtime_end_at', $overtimeEndAt, PDO::PARAM_STR);
+    $stmt->execute();
+}
