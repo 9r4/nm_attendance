@@ -78,3 +78,16 @@ function fetchMonthlyRequests(PDO $pdo, string $employeeId, string $fromDate, st
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
+// 自分の申請中の申請を、取り消す（削除する）。削除できたら true（本人の申請中のものが無ければ false）
+// D-063：この関数は、依頼者の了承を得て Claude が書いた
+function deletePendingRequest(PDO $pdo, int $requestId, string $employeeId): bool {
+    // 本人（employee_id）と申請中（status = 'pending'）を条件に付けて、ほかの人の申請や、承認・却下された申請を消さない
+    $sql = "DELETE FROM attendance_requests WHERE id = :id AND employee_id = :employee_id AND status = 'pending'";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':id', $requestId, PDO::PARAM_INT);
+    $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
+    $stmt->execute();
+    return $stmt->rowCount() === 1;
+}
+
