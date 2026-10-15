@@ -113,5 +113,11 @@ function fetchMonthlyAttendances(PDO $pdo, string $employeeId, string $fromDate,
     // 3. 3つの値を bindValue で渡す（型は PDO::PARAM_STR）
     // 4. execute() して、fetchAll() で全部の行を取得する（fetch() は1行だけなので、ここでは使わない）
     // 5. 取得した配列を、そのまま return する（行が無いときは、fetchAll() が空の配列 [] を返すので、null にしない）
-    throw new RuntimeException('fetchMonthlyAttendances は未実装です');
+    $sql = 'SELECT work_date, check_in_at, check_out_at, break_start_at, break_end_at FROM attendances WHERE employee_id = :employee_id AND work_date BETWEEN :from_date AND :to_date ORDER BY work_date';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
+    $stmt->bindValue(':from_date', $fromDate, PDO::PARAM_STR);
+    $stmt->bindValue(':to_date', $toDate, PDO::PARAM_STR);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }

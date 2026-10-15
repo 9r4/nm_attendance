@@ -16,7 +16,8 @@ function fetchEmployeeProfile(PDO $pdo, string $employeeId): ?array {
     // 4. execute() して、fetch() で1行取得する
     // 5. 見つからなかったら null、見つかったらその行を返す
     // throw new RuntimeException('fetchEmployeeProfile は未実装です');
-    $sql = 'SELECT e.employee_id, e.name, d.name AS department_name FROM employees e JOIN departments d ON e.department_id = d.id WHERE e.employee_id = :employee_id';
+
+    $sql = 'SELECT e.employee_id, e.name, d.name AS department_name, e.joined_on FROM employees e JOIN departments d ON e.department_id = d.id WHERE e.employee_id = :employee_id';
     $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
     $stmt->execute();
