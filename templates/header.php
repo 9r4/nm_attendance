@@ -1,8 +1,10 @@
 <?php
 // 画面の共通の上部（<head> と、画面上部のヘッダー）
 // 使う前に $pageTitle（画面の名前）を用意しておく。ログイン中の画面では $currentUser（requireLogin() の戻り値）も用意する
+// 状態バッジを出す画面（メイン画面）では、$headerStatus（attendanceView() の戻り値）も用意する
 $pageTitle = $pageTitle ?? '';
 $currentUser = $currentUser ?? null;
+$headerStatus = $headerStatus ?? null;
 ?>
 <!DOCTYPE html>
 <html lang="ja">
@@ -33,6 +35,9 @@ $currentUser = $currentUser ?? null;
                         <div class="app-header__department"><?= h($currentUser['department_name']) ?></div>
                     <?php endif; ?>
                 </div>
+                <?php if ($headerStatus !== null): ?>
+                    <span class="status-badge status-badge--<?= h(str_replace('_', '-', $headerStatus['status'])) ?>" id="status-badge"><?= h($headerStatus['statusLabel']) ?></span>
+                <?php endif; ?>
                 <form method="post" action="<?= h(appUrl('logout.php')) ?>">
                     <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                     <button class="button button--outline" type="submit">ログアウト</button>

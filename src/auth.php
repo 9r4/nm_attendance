@@ -46,17 +46,27 @@ function logoutUser(): void {
 // ログインしていなければログイン画面へ移す（BR-003）。ログイン中の利用者を返す
 // 戻り値：['login_id', 'employee_id', 'role', 'approval_scope', 'name', 'department_name']
 function requireLogin(PDO $pdo): array {
+    $user = currentUser($pdo);
+    if ($user === null) {
+        redirect('login.php');
+    }
+    return $user;
+}
+
+// ログイン中の利用者を返す。ログインしていなければ null（画面は移さない。API で使う）
+// 戻り値は requireLogin() と同じ
+function currentUser(PDO $pdo): ?array {
     startAppSession();
     $loginId = $_SESSION['user']['login_id'] ?? null;
     if ($loginId === null) {
-        redirect('login.php');
+        return null;
     }
 
     // ログイン中に利用不可にされた場合も、すぐに使えなくする
     $account = fetchLoginAccount($pdo, $loginId);
     if ($account === null || (int) $account['is_active'] !== 1) {
         logoutUser();
-        redirect('login.php');
+        return null;
     }
 
     $user = [
