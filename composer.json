@@ -4,7 +4,8 @@
     "type": "project",
     "license": "proprietary",
     "require-dev": {
-        "phpunit/phpunit": "^11.5"
+        "phpunit/phpunit": "^11.5",
+        "holiday-jp/holiday_jp": "^2.3"
     },
     "scripts": {
         "test": "phpunit tests"
