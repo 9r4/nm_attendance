@@ -410,6 +410,40 @@ DELETE FROM attendance_requests WHERE employee_id = '2025001';
 exit
 ```
 
+### 5-5. システム管理者の画面の確認で作ったデータを消す（PR 7 以降の動作確認用）
+
+アカウント・部署には削除の画面が無い。PR 7 の確認で作ったものを消して、テストデータの状態に戻すときに使う。
+
+- 消えるもの：**社員コードが 2026 で始まるアカウント**（と、その勤怠・申請、そのアカウントが承認・却下した申請）、2026 年の採番の記録、営業部・開発部以外の部署。
+- 元に戻るもの：テストデータの社員 2025001〜2025004 の在籍状態・ログインの可否（2025004 はログイン不可のまま）、部署の利用可否、勤務設定（9:00〜18:00、昼休憩 12:00〜13:00）。
+- パスワード再設定で、テストデータの社員のパスワードを変えた場合は、戻らない（画面のパスワード再設定で `Test1234` に戻す）。
+- 2027 年以降に確認した場合は、`2026` をその年に読み替える。
+
+**【ターミナルで実行】**
+
+```bash
+mysql -u attendance_app -p
+```
+
+**【mysql 内で実行】**
+
+```sql
+USE attendance_training;
+DELETE FROM attendance_requests WHERE employee_id LIKE '2026%' OR reviewer_id LIKE '2026%';
+DELETE FROM attendances WHERE employee_id LIKE '2026%';
+DELETE FROM login_accounts WHERE employee_id LIKE '2026%';
+DELETE FROM employees WHERE employee_id LIKE '2026%';
+DELETE FROM employee_id_sequences WHERE year = 2026;
+DELETE FROM departments WHERE name NOT IN ('営業部', '開発部');
+UPDATE departments SET is_active = 1;
+UPDATE employees SET employment_status = 'active', left_on = NULL WHERE employee_id IN ('2025001', '2025002', '2025003', '2025004');
+UPDATE login_accounts SET is_active = 1 WHERE login_id IN ('2025001', '2025002', '2025003');
+UPDATE work_settings SET standard_start = '09:00:00', standard_end = '18:00:00', lunch_start = '12:00:00', lunch_end = '13:00:00' WHERE id = 1;
+exit
+```
+
+- 次にアカウントを作ると、社員コードは 2026001 から始まる。
+
 ## 6. よくある失敗
 
 | 症状 | 原因・対処 |
