@@ -44,7 +44,7 @@ function logoutUser(): void {
 }
 
 // ログインしていなければログイン画面へ移す（BR-003）。ログイン中の利用者を返す
-// 戻り値：['login_id', 'employee_id', 'role', 'approval_scope', 'name', 'department_name', 'joined_on']（システム管理者の joined_on は null）
+// 戻り値：['login_id', 'employee_id', 'role', 'approval_scope', 'name', 'department_name', 'joined_on', 'department_id']（システム管理者の joined_on・department_id は null）
 function requireLogin(PDO $pdo): array {
     $user = currentUser($pdo);
     if ($user === null) {
@@ -77,6 +77,7 @@ function currentUser(PDO $pdo): ?array {
         'name' => 'システム管理者',
         'department_name' => '',
         'joined_on' => null,
+        'department_id' => null,
     ];
     if ($account['role'] !== ROLE_SYSTEM_ADMIN) {
         $profile = fetchEmployeeProfile($pdo, $account['employee_id']);
@@ -86,6 +87,7 @@ function currentUser(PDO $pdo): ?array {
         $user['name'] = $profile['name'];
         $user['department_name'] = $profile['department_name'];
         $user['joined_on'] = $profile['joined_on'] ?? null;
+        $user['department_id'] = isset($profile['department_id']) ? (int) $profile['department_id'] : null;
     }
     return $user;
 }
