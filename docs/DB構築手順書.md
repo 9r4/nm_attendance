@@ -378,6 +378,38 @@ exit
 DELETE FROM attendances WHERE employee_id = '2025001' AND work_date BETWEEN '2026-09-01' AND '2026-09-30';
 ```
 
+### 5-4. 申請の確認用（PR 5 以降の動作確認用）
+
+**簡単残業申請を試す**：申請できるのは、本日の退勤が 18:00 より後の日だけ。昼間に試すときは、先にメイン画面で「出勤」「退勤」を押してから、本日の退勤を 19:30 に書き換える（2025001 の本日の行だけが変わる）。
+
+**【ターミナルで実行】**
+
+```bash
+mysql -u attendance_app -p
+```
+
+**【mysql 内で実行】**
+
+```sql
+USE attendance_training;
+SET time_zone = '+09:00';
+UPDATE attendances SET check_out_at = CONCAT(CURDATE(), ' 19:30:00') WHERE employee_id = '2025001' AND work_date = CURDATE();
+exit
+```
+
+- `Rows matched: 1` なら書き換わった。`Rows matched: 0` なら、本日の行が無い（先にメイン画面で「出勤」を押す）。
+- メイン画面を読み込み直すと、退勤が 19:30 になり、「簡単残業申請」が押せる。
+
+**申請を最初から試し直す**：2025001 の申請を、すべて消す（勤怠の記録は消えない）。
+
+**【mysql 内で実行】**
+
+```sql
+USE attendance_training;
+DELETE FROM attendance_requests WHERE employee_id = '2025001';
+exit
+```
+
 ## 6. よくある失敗
 
 | 症状 | 原因・対処 |
