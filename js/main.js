@@ -54,6 +54,7 @@
     const statusBadge = document.getElementById('status-badge');
     const toast = document.getElementById('toast');
     const dialog = document.getElementById('confirm-dialog');
+    const overtimeButton = document.getElementById('overtime-open');
     let currentView = JSON.parse(attendance.dataset.view);
     let pendingAction = null;
     let toastTimer = null;
@@ -71,6 +72,7 @@
         buttons.forEach((button) => {
             button.disabled = !view.buttons[button.dataset.action];
         });
+        overtimeButton.disabled = !view.buttons.overtime;
     }
 
     function showToast(message, isError) {
@@ -158,5 +160,86 @@
             send(action, true);
         }
         dialog.returnValue = '';
+    });
+
+    // ---- 簡単残業申請（FR-008）：api/requests.php に送る。入力の誤りはウィンドウの中に出す ----
+    const overtimeDialog = document.getElementById('overtime-dialog');
+    const overtimeForm = document.getElementById('overtime-form');
+    const overtimeEnd = document.getElementById('overtime-end');
+    const overtimeSubmit = document.getElementById('overtime-submit');
+    const overtimeErrors = ['form', 'overtime_end'].map((name) => document.getElementById(`overtime-error-${name}`));
+
+    function showOvertimeErrors(errors) {
+        overtimeErrors.forEach((error) => {
+            error.hidden = true;
+            error.textContent = '';
+        });
+        overtimeEnd.removeAttribute('aria-invalid');
+        Object.entries(errors).forEach(([name, message]) => {
+            const error = document.getElementById(`overtime-error-${name}`) ?? overtimeErrors[0];
+            error.textContent = message;
+            error.hidden = false;
+            if (name === 'overtime_end') {
+                overtimeEnd.setAttribute('aria-invalid', 'true');
+                overtimeEnd.focus();
+            }
+        });
+    }
+
+    overtimeButton.addEventListener('click', () => {
+        overtimeForm.reset();
+        showOvertimeErrors({});
+        // 退勤時刻は、最新の表示の値。最初は退勤時刻を入れておく（画面モックのとおり）
+        document.getElementById('overtime-check-out').textContent = currentView.checkOut;
+        overtimeEnd.value = currentView.checkOut;
+        overtimeSubmit.disabled = false;
+        overtimeDialog.showModal();
+        overtimeEnd.focus();
+    });
+    document.getElementById('overtime-cancel').addEventListener('click', () => overtimeDialog.close());
+    overtimeDialog.addEventListener('click', (event) => {
+        if (event.target === overtimeDialog) {
+            overtimeDialog.close();
+        }
+    });
+
+    overtimeForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        overtimeSubmit.disabled = true;
+        const body = new FormData(overtimeForm);
+        body.append('csrf_token', attendance.dataset.csrfToken);
+        body.append('type', 'overtime');
+
+        let data = null;
+        try {
+            const response = await fetch(attendance.dataset.requestApiUrl, {
+                method: 'POST',
+                body,
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+            });
+            if (response.status === 401) {
+                window.location.href = attendance.dataset.loginUrl;
+                return;
+            }
+            data = await response.json().catch(() => null);
+            if (!response.ok || data === null) {
+                showOvertimeErrors({ form: data?.message ?? 'エラーが発生しました。画面を読み込み直して、もう一度お試しください。' });
+                overtimeSubmit.disabled = false;
+                return;
+            }
+        } catch (error) {
+            showOvertimeErrors({ form: '通信できませんでした。接続を確かめて、もう一度お試しください。' });
+            overtimeSubmit.disabled = false;
+            return;
+        }
+
+        if (data.ok) {
+            overtimeDialog.close();
+            showToast(data.message, false);
+            return;
+        }
+        showOvertimeErrors(data.errors);
+        overtimeSubmit.disabled = false;
     });
 })();

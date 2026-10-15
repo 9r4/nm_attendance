@@ -4,6 +4,7 @@
 include_once(__DIR__ . '/../src/functions.php');
 include_once(__DIR__ . '/../src/dbconnect.php');
 include_once(__DIR__ . '/../src/auth.php');
+include_once(__DIR__ . '/../src/queries/work_settings.php');
 include_once(__DIR__ . '/../src/attendance.php');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -30,4 +31,4 @@ if (!is_string($action) || !isset(ATTENDANCE_ACTION_LABELS[$action])) {
 }
 $overwrite = ($_POST['overwrite'] ?? '') === '1';
 
-jsonResponse(200, performAttendanceAction($pdo, $currentUser['employee_id'], $action, $overwrite, time()));
+jsonResponse(200, performAttendanceAction($pdo, $currentUser['employee_id'], $action, $overwrite, time(), fetchWorkSettings($pdo)['standard_end']));

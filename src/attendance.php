@@ -86,8 +86,15 @@ function actionMode(?array $attendance, string $action): string {
     throw new InvalidArgumentException('知らない操作です: ' . $action);
 }
 
+// 簡単残業申請を押せるか：その日の退勤が記録済みで、標準終了時刻（'18:00:00'）より後（FR-008、D-062）
+function overtimeAvailable(?array $attendance, string $standardEnd): bool {
+    $checkOut = $attendance['check_out_at'] ?? null;
+    return $checkOut !== null && substr($checkOut, 11) > $standardEnd;
+}
+
 // 画面に出す値（状態・本日の記録・押せるボタン）。メイン画面の表示と、API の応答の両方で使う
-function attendanceView(?array $attendance): array {
+// $standardEnd（標準終了時刻 '18:00:00'）を渡すと、簡単残業申請のボタンを押せるか（overtime）も入れる
+function attendanceView(?array $attendance, ?string $standardEnd = null): array {
     $status = attendanceStatus($attendance);
     $breakStart = $attendance['break_start_at'] ?? null;
     $breakEnd = $attendance['break_end_at'] ?? null;
@@ -103,6 +110,10 @@ function attendanceView(?array $attendance): array {
         $buttons[$action] = actionMode($attendance, $action) !== ACTION_UNAVAILABLE;
     }
 
+    if ($standardEnd !== null) {
+        $buttons['overtime'] = overtimeAvailable($attendance, $standardEnd);
+    }
+
     return [
         'status' => $status,
         'statusLabel' => ATTENDANCE_STATUS_LABELS[$status],
@@ -114,8 +125,9 @@ function attendanceView(?array $attendance): array {
 }
 
 // ボタンを押したときの処理。$overwrite は、上書き確認で「上書きする」を押したとき true
+// $standardEnd：標準終了時刻（画面に返す、簡単残業申請のボタンの判断に使う）
 // 戻り値：['result' => recorded／overwritten／confirm／unavailable／conflict, 'message' => 通知の文, 'confirm' => 確認の文（confirm のとき）, 'view' => attendanceView()]
-function performAttendanceAction(PDO $pdo, string $employeeId, string $action, bool $overwrite, int $now): array {
+function performAttendanceAction(PDO $pdo, string $employeeId, string $action, bool $overwrite, int $now, ?string $standardEnd = null): array {
     if (!isset(ATTENDANCE_ACTION_LABELS[$action])) {
         throw new InvalidArgumentException('知らない操作です: ' . $action);
     }
@@ -130,7 +142,7 @@ function performAttendanceAction(PDO $pdo, string $employeeId, string $action, b
         return [
             'result' => 'unavailable',
             'message' => '今は「' . $label . '」を押せません。表示を最新の状態にしました。',
-            'view' => attendanceView($attendance),
+            'view' => attendanceView($attendance, $standardEnd),
         ];
     }
 
@@ -142,7 +154,7 @@ function performAttendanceAction(PDO $pdo, string $employeeId, string $action, b
                 'title' => $label . 'を上書きしますか？',
                 'body' => '本日の' . $label . 'は、すでに ' . formatClock($current) . ' で記録されています。今の時刻で上書きしますか？',
             ],
-            'view' => attendanceView($attendance),
+            'view' => attendanceView($attendance, $standardEnd),
         ];
     }
 
@@ -159,7 +171,7 @@ function performAttendanceAction(PDO $pdo, string $employeeId, string $action, b
                     return [
                         'result' => 'conflict',
                         'message' => '別の画面で、すでに出勤が記録されています。表示を最新の状態にしました。',
-                        'view' => attendanceView(fetchAttendance($pdo, $employeeId, $workDate)),
+                        'view' => attendanceView(fetchAttendance($pdo, $employeeId, $workDate), $standardEnd),
                     ];
                 }
             } else {
@@ -195,6 +207,6 @@ function performAttendanceAction(PDO $pdo, string $employeeId, string $action, b
     return [
         'result' => $result,
         'message' => $message,
-        'view' => attendanceView(fetchAttendance($pdo, $employeeId, $workDate)),
+        'view' => attendanceView(fetchAttendance($pdo, $employeeId, $workDate), $standardEnd),
     ];
 }

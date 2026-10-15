@@ -3,6 +3,7 @@
 
 include_once(__DIR__ . '/holidays.php');
 include_once(__DIR__ . '/attendance.php');
+include_once(__DIR__ . '/requests.php');
 
 // 表示する月を決める
 // $requested：URL の month（例：'2026-09'）。$today：今日（'2026-10-15'）。$joinedOn：入社日（'2025-04-01'）
@@ -80,12 +81,17 @@ function formatMinutes(int $minutes): string {
 }
 
 // 月カレンダーを組み立てる
-// $attendances：fetchMonthlyAttendances() の戻り値。$today：今日（'2026-10-15'）
+// $attendances：fetchMonthlyAttendances() の戻り値。$requests：fetchMonthlyRequests() の戻り値（古い順）
+// $today：今日（'2026-10-15'）。$joinedOn：入社日（これより前の日は、申請できない）
 // 戻り値：['weeks' => 週ごとに7つ（日〜土）のセル（月の外は null）, 'workDays' => 出勤日数, 'totalMinutes' => 総労働時間（分）]
-function buildCalendar(array $month, array $attendances, array $settings, string $today): array {
+function buildCalendar(array $month, array $attendances, array $settings, string $today, array $requests, string $joinedOn): array {
     $byDate = [];
     foreach ($attendances as $row) {
         $byDate[$row['work_date']] = $row;
+    }
+    $requestsByDate = [];
+    foreach ($requests as $request) {
+        $requestsByDate[$request['target_date']][] = $request;
     }
     $holidays = japaneseHolidays((int) substr($month['first'], 0, 4));
     $weekdays = ['日', '月', '火', '水', '木', '金', '土'];
@@ -108,6 +114,14 @@ function buildCalendar(array $month, array $attendances, array $settings, string
         if ($date !== $today && $row !== null && $row['break_start_at'] !== null && $row['break_end_at'] === null) {
             $break = formatClock($row['break_start_at']) . '–';
         }
+        $dayRequests = $requestsByDate[$date] ?? [];
+        $badge = requestBadgeStatus($dayRequests);
+        $pendingCorrection = hasPendingCorrection($dayRequests);
+        // 申請ウィンドウに入れておく、今の値（'H:i'。無ければ空欄）
+        $values = [];
+        foreach (['check_in' => 'check_in_at', 'check_out' => 'check_out_at', 'break_start' => 'break_start_at', 'break_end' => 'break_end_at'] as $name => $field) {
+            $values[$name] = ($row[$field] ?? null) === null ? '' : formatClock($row[$field]);
+        }
         $cells[] = [
             'date' => $date,
             'day' => (int) substr($date, 8, 2),
@@ -121,6 +135,13 @@ function buildCalendar(array $month, array $attendances, array $settings, string
             'checkOut' => $view['checkOut'],
             'break' => $break,
             'workTime' => $minutes === null ? '--' : formatMinutes($minutes),
+            'values' => $values,
+            'badge' => $badge,
+            'badgeLabel' => $badge === null ? '' : REQUEST_STATUS_LABELS[$badge],
+            'requests' => array_map('requestView', $dayRequests),
+            'isFuture' => $date > $today,
+            'pendingCorrection' => $pendingCorrection,
+            'canRequest' => $date >= $joinedOn && $date <= $today && !$pendingCorrection,
         ];
     }
     while (count($cells) % 7 !== 0) {

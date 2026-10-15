@@ -1,5 +1,6 @@
 <?php
-// 記録表示（FR-004）：自分の勤怠を、1か月単位のカレンダーで表示する。日付を押すと、その日の記録を表示する（js/records.js）
+// 記録表示（FR-004）と、修正・新規登録の申請（FR-005）
+// 自分の勤怠を1か月単位のカレンダーで表示する。日付を押すと、その日の記録と申請を表示し、そこから申請できる（js/records.js）
 include_once(__DIR__ . '/../src/functions.php');
 include_once(__DIR__ . '/../src/dbconnect.php');
 include_once(__DIR__ . '/../src/auth.php');
@@ -16,22 +17,37 @@ $today = date('Y-m-d');
 $requested = isset($_GET['month']) && is_string($_GET['month']) ? $_GET['month'] : null;
 $month = resolveMonth($requested, $today, $currentUser['joined_on']);
 $attendances = fetchMonthlyAttendances($pdo, $currentUser['employee_id'], $month['first'], $month['last']);
-$calendar = buildCalendar($month, $attendances, fetchWorkSettings($pdo), $today);
+$requests = fetchMonthlyRequests($pdo, $currentUser['employee_id'], $month['first'], $month['last']);
+$calendar = buildCalendar($month, $attendances, fetchWorkSettings($pdo), $today, $requests, $currentUser['joined_on']);
+$flash = takeFlash();
 
-// 日付を押したときに表示する、その日の記録（js/records.js が使う）
+// 日付を押したときに表示する、その日の記録と申請（js/records.js が使う）
 $days = [];
 foreach ($calendar['weeks'] as $week) {
     foreach ($week as $cell) {
         if ($cell !== null) {
-            $days[$cell['date']] = array_intersect_key($cell, array_flip(['label', 'holiday', 'hasRecord', 'checkIn', 'checkOut', 'break', 'workTime']));
+            $days[$cell['date']] = array_intersect_key($cell, array_flip([
+                'label', 'holiday', 'hasRecord', 'checkIn', 'checkOut', 'break', 'workTime',
+                'values', 'requests', 'isFuture', 'pendingCorrection', 'canRequest',
+            ]));
         }
     }
 }
+
+// 「申請」ボタンで選べる日：表示中の月の、入社日から今日までの日
+$requestMin = max($month['first'], $currentUser['joined_on']);
+$requestMax = min($month['last'], $today);
 
 $pageTitle = '記録表示';
 include(__DIR__ . '/../templates/header.php');
 ?>
 <main class="records">
+    <?php if ($flash !== null): ?>
+        <div class="toast" id="toast" role="status" aria-live="polite"><?= h($flash) ?></div>
+    <?php else: ?>
+        <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <?php endif; ?>
+
     <div class="records__bar">
         <nav class="month-nav" aria-label="月の切り替え">
             <?php if ($month['prev'] !== null): ?>
@@ -50,9 +66,16 @@ include(__DIR__ . '/../templates/header.php');
             <span class="summary__item">出勤日数 <b id="summary-days"><?= h($calendar['workDays']) ?>日</b></span>
             <span class="summary__item">総労働時間 <b id="summary-total"><?= h(formatMinutes($calendar['totalMinutes'])) ?></b></span>
         </div>
+        <?php if ($requestMin <= $requestMax): ?>
+            <button class="button button--primary records__request" type="button" id="request-open">申請</button>
+        <?php endif; ?>
     </div>
 
-    <div class="calendar" id="calendar" data-days="<?= h(json_encode($days, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) ?>">
+    <div class="calendar" id="calendar"
+        data-days="<?= h(json_encode($days, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) ?>"
+        data-api-url="<?= h(appUrl('api/requests.php')) ?>"
+        data-login-url="<?= h(appUrl('login.php')) ?>"
+        data-csrf-token="<?= h(csrfToken()) ?>">
         <div class="calendar__head" aria-hidden="true">
             <?php foreach (['日', '月', '火', '水', '木', '金', '土'] as $i => $weekdayName): ?>
                 <div class="calendar__weekday calendar__weekday--<?= h($i) ?>"><?= h($weekdayName) ?></div>
@@ -73,8 +96,9 @@ include(__DIR__ . '/../templates/header.php');
                             $classes[] = 'calendar__day--today';
                         }
                         $dateClass = ($cell['weekday'] === 0 || $cell['holiday'] !== '') ? ' calendar__date--sunday' : ($cell['weekday'] === 6 ? ' calendar__date--saturday' : '');
+                        $ariaLabel = $cell['label'] . ($cell['holiday'] !== '' ? ' ' . $cell['holiday'] : '') . ($cell['badge'] !== null ? ' ' . $cell['badgeLabel'] : '') . 'の記録';
                         ?>
-                        <button class="<?= h(implode(' ', $classes)) ?>" type="button" data-date="<?= h($cell['date']) ?>" aria-label="<?= h($cell['label'] . ($cell['holiday'] !== '' ? ' ' . $cell['holiday'] : '') . 'の記録') ?>"<?= $cell['isToday'] ? ' aria-current="date"' : '' ?>>
+                        <button class="<?= h(implode(' ', $classes)) ?>" type="button" data-date="<?= h($cell['date']) ?>" aria-label="<?= h($ariaLabel) ?>"<?= $cell['isToday'] ? ' aria-current="date"' : '' ?>>
                             <span class="calendar__top">
                                 <span class="calendar__date<?= h($dateClass) ?>"><?= h($cell['day']) ?></span>
                                 <?php if ($cell['holiday'] !== ''): ?>
@@ -87,6 +111,9 @@ include(__DIR__ . '/../templates/header.php');
                                     <span><span class="calendar__mark">退</span> <?= h($cell['checkOut']) ?></span>
                                 </span>
                             <?php endif; ?>
+                            <?php if ($cell['badge'] !== null): ?>
+                                <span class="request-badge request-badge--<?= h($cell['badge']) ?>"><?= h($cell['badgeLabel']) ?></span>
+                            <?php endif; ?>
                         </button>
                     <?php endif; ?>
                 <?php endforeach; ?>
@@ -94,6 +121,7 @@ include(__DIR__ . '/../templates/header.php');
         <?php endforeach; ?>
     </div>
 
+    <!-- その日の記録と申請 -->
     <dialog class="dialog" id="day-dialog" aria-labelledby="day-title">
         <form method="dialog" class="dialog__body">
             <h2 class="dialog__title" id="day-title"></h2>
@@ -105,8 +133,47 @@ include(__DIR__ . '/../templates/header.php');
                 <div class="day-detail__row"><dt>労働時間</dt><dd id="day-work-time"></dd></div>
             </dl>
             <p class="dialog__text" id="day-empty" hidden>記録はありません。</p>
+            <section class="request-list" id="day-requests" hidden>
+                <h3 class="request-list__title">申請</h3>
+                <ul class="request-list__items" id="day-request-items"></ul>
+            </section>
+            <p class="alert alert--info" id="day-pending" hidden>申請中のため、承認・却下されるまで新しい申請はできません。</p>
             <div class="dialog__actions">
                 <button class="button button--outline" type="submit" value="close">閉じる</button>
+                <button class="button button--primary" type="button" id="day-request" hidden></button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- 修正・新規登録の申請ウィンドウ（種別の欄は置かない。D-051） -->
+    <dialog class="dialog dialog--wide" id="request-dialog" aria-labelledby="request-title">
+        <form class="dialog__body" id="request-form" novalidate>
+            <h2 class="dialog__title" id="request-title">修正・新規登録の申請</h2>
+            <p class="dialog__subtitle" id="request-day" hidden></p>
+            <p class="alert alert--error" id="request-error-form" role="alert" hidden></p>
+            <div class="form-grid">
+                <div class="form-field form-grid__wide">
+                    <label class="form-field__label" for="request-date">対象日</label>
+                    <input class="form-field__input" type="date" id="request-date" name="target_date" min="<?= h($requestMin) ?>" max="<?= h($requestMax) ?>" required>
+                    <p class="form-field__error" id="request-error-target_date" hidden></p>
+                </div>
+                <?php foreach (['check_in' => '出勤時刻', 'check_out' => '退勤時刻', 'break_start' => '休憩開始', 'break_end' => '休憩終了'] as $name => $label): ?>
+                    <div class="form-field">
+                        <label class="form-field__label" for="request-<?= h($name) ?>"><?= h($label) ?></label>
+                        <input class="form-field__input" type="time" id="request-<?= h($name) ?>" name="<?= h($name) ?>" step="60">
+                        <p class="form-field__error" id="request-error-<?= h($name) ?>" hidden></p>
+                    </div>
+                <?php endforeach; ?>
+                <div class="form-field form-grid__wide">
+                    <label class="form-field__label" for="request-reason">理由（任意）</label>
+                    <textarea class="form-field__input form-field__textarea" id="request-reason" name="reason" rows="3" maxlength="<?= h(REQUEST_REASON_MAX_LENGTH) ?>"></textarea>
+                    <p class="form-field__error" id="request-error-reason" hidden></p>
+                </div>
+            </div>
+            <p class="dialog__help">空欄の項目は「なし」として申請します。申請は管理者が承認するまで勤怠に反映されず、「申請中」と表示されます。</p>
+            <div class="dialog__actions">
+                <button class="button button--outline" type="button" id="request-cancel">キャンセル</button>
+                <button class="button button--primary" type="submit" id="request-submit">申請する</button>
             </div>
         </form>
     </dialog>
