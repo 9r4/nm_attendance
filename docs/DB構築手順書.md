@@ -318,6 +318,29 @@ sysadmin NULL     system_admin  1
 rm /tmp/test_data.sql
 ```
 
+### 5-2. 出退勤を最初から試し直す（本日の記録を消す。PR 3 以降の動作確認用）
+
+メイン画面の出勤・休憩・退勤を、同じ日にもう一度試したいときに、テスト用の社員（例：`2025001`）の**本日の行だけ**を消す。ほかの社員・ほかの日の行は消えない。
+
+**【ターミナルで実行】**
+
+```bash
+mysql -u attendance_app -p
+```
+
+**【mysql 内で実行】**
+
+```sql
+USE attendance_training;
+SET time_zone = '+09:00';
+DELETE FROM attendances WHERE employee_id = '2025001' AND work_date = CURDATE();
+exit
+```
+
+- `SET time_zone` は、「本日」を日本時間の日付にするため（アプリと同じ）。
+- `Query OK, 1 row affected` なら消えた。`0 rows affected` なら、本日の行は無かった。
+- 消したあと、メイン画面を読み込み直すと「未出勤」に戻る。
+
 ## 6. よくある失敗
 
 | 症状 | 原因・対処 |

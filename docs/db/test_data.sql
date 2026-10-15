@@ -3,6 +3,8 @@
 -- 社員 ID は 2025 年の番号にする（2026 年の番号は、PR 7 の自動採番と重なるため）
 -- 1回だけ実行する（2回目は、重複のエラーになる）
 
+SET NAMES utf8mb4;
+
 INSERT INTO departments (name) VALUES ('営業部'), ('開発部');
 
 INSERT INTO employees (employee_id, name, email, department_id, joined_on) VALUES
