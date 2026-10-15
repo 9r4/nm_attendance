@@ -83,6 +83,42 @@ ssh -T github-nm
 初回は `Are you sure you want to continue connecting (yes/no/[fingerprint])?` と聞かれるので、`yes` と入力する。
 `Hi 9r4/nm_attendance! You've successfully authenticated, but GitHub does not provide shell access.` と表示されれば成功。
 
+### 0-3. PHP の拡張機能の確認（2026-10-15 追加）
+
+このシステムが使う PHP の拡張機能は、次の2つ。Ubuntu では、PHP 本体とは別に入れる必要がある。
+
+| 拡張機能 | 使う場所 | 無い場合 |
+| --- | --- | --- |
+| `pdo_mysql` | DB への接続（全画面） | どの画面も「データベースに接続できません。」などのエラーになる |
+| `mbstring` | 申請の理由の文字数の確認（PR 5 以降） | 記録表示から申請すると「エラーが発生しました。画面を読み込み直して、もう一度お試しください。」になる（2026-10-15 に WSL で発生し、入れて解決） |
+
+**【ターミナルで実行】**
+
+```bash
+php -m | grep -i -E 'pdo_mysql|mbstring'
+```
+
+**【出力例（入力しない）】**
+
+```
+mbstring
+pdo_mysql
+```
+
+どちらかが表示されなければ、入れて Apache を再起動する（入れる必要が無いものは、入れても変わらない）。
+
+**【ターミナルで実行】**
+
+```bash
+sudo apt update && sudo apt install -y php-mysql php-mbstring
+```
+
+**【ターミナルで実行】**
+
+```bash
+sudo service apache2 restart
+```
+
 ## 1. 初回配置
 
 ### 1-1. 配置先ディレクトリを作る
