@@ -39,6 +39,11 @@
     --font-family: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
 }
 
+/* hidden の要素は、display を指定したクラス（.button など）があっても表示しない */
+[hidden] {
+    display: none !important;
+}
+
 /* ress が読み込めない場合でも崩れないよう、余白の初期化だけはここでも行う */
 body,
 h1,
@@ -457,10 +462,6 @@ textarea {
     transform: translateX(-50%);
 }
 
-.toast[hidden] {
-    display: none;
-}
-
 .toast--error {
     background: var(--color-error-bg);
     border-color: var(--color-danger);
@@ -754,14 +755,16 @@ textarea {
     font-size: 14px;
 }
 
+.dialog__subtitle {
+    color: var(--color-text-sub);
+    font-size: 15px;
+    font-weight: 600;
+}
+
 .day-detail {
     display: flex;
     flex-direction: column;
     gap: 8px;
-}
-
-.day-detail[hidden] {
-    display: none;
 }
 
 .day-detail__row {
@@ -783,9 +786,201 @@ textarea {
     font-variant-numeric: tabular-nums;
 }
 
-/* 狭い画面では、ヘッダーのアプリ名を隠し、アイコンだけにする */
+/* 申請の状態のバッジ（申請中＝黄、承認済み＝緑、却下＝赤） */
+.request-badge {
+    align-self: flex-start;
+    padding: 1px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.request-badge--pending {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+}
+
+.request-badge--approved {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+}
+
+.request-badge--rejected {
+    background: var(--color-error-bg);
+    color: var(--color-error-text);
+}
+
+/* 記録表示の「申請」ボタン（右端） */
+.records__request {
+    margin-left: auto;
+    min-height: 48px;
+    padding: 0 24px;
+    border-radius: var(--radius-m);
+}
+
+/* その日の申請の一覧 */
+.request-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.request-list__title {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.request-list__items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.request-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-s);
+}
+
+.request-item__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.request-item__type {
+    font-weight: 700;
+}
+
+.request-item__date {
+    margin-left: auto;
+    color: var(--color-text-sub);
+    font-size: 13px;
+}
+
+.request-item__changes {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.request-item__note {
+    color: var(--color-text-muted);
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
+/* 申請ウィンドウの入力欄 */
+.dialog--wide {
+    max-width: 520px;
+}
+
+.dialog__help {
+    color: var(--color-text-sub);
+    font-size: 13px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.form-grid__wide {
+    grid-column: 1 / -1;
+}
+
+.form-field__textarea {
+    height: auto;
+    padding: 10px 14px;
+    resize: vertical;
+}
+
+.form-field__input[aria-invalid="true"] {
+    border-color: var(--color-danger);
+}
+
+.form-field__input[readonly] {
+    background: var(--color-bg);
+}
+
+.form-field__error {
+    color: var(--color-error-text);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* メイン画面の簡単残業申請 */
+.overtime {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.overtime__button {
+    width: 100%;
+    height: 56px;
+    background: var(--color-surface);
+    border: 2px solid var(--color-text);
+    border-radius: var(--radius-l);
+    color: var(--color-text);
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.overtime__button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.overtime__note {
+    color: var(--color-text-sub);
+    font-size: 13px;
+    text-align: center;
+}
+
+.overtime-times {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.overtime-times__item {
+    padding: 12px 16px;
+    background: var(--color-bg);
+    border-radius: var(--radius-s);
+}
+
+.overtime-times__item dt {
+    color: var(--color-text-sub);
+    font-size: 13px;
+}
+
+.overtime-times__item dd {
+    font-size: 20px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 狭い画面では、ヘッダーのアプリ名を隠し、アイコンだけにする。メニューのボタンがある画面（ログイン中）は、アイコンも隠す（メニューから移動できるため） */
 @media (max-width: 480px) {
     .app-header__name {
+        display: none;
+    }
+
+    .app-header__menu-button + .app-header__brand {
         display: none;
     }
 }
@@ -911,6 +1106,37 @@ textarea {
 
     .calendar__mark {
         display: none;
+    }
+
+    /* 狭いカレンダーでは、バッジを色の点にする（状態は、ボタンの読み上げ名と、日付を押したウィンドウで分かる） */
+    .calendar__day .request-badge {
+        align-self: center;
+        width: 10px;
+        height: 10px;
+        padding: 0;
+        overflow: hidden;
+        font-size: 0;
+    }
+
+    .calendar__day .request-badge--pending {
+        background: var(--color-warning-text);
+    }
+
+    .calendar__day .request-badge--approved {
+        background: var(--color-success-text);
+    }
+
+    .calendar__day .request-badge--rejected {
+        background: var(--color-error-text);
+    }
+
+    .records__request {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .form-grid {
+        gap: 12px;
     }
 
     .card {

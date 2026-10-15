@@ -93,7 +93,7 @@ final class RecordsTest extends TestCase {
             self::row('09:00', null, null, null, '2026-09-03'),                 // 退勤なし：日数には数え、時間には入れない
             self::row('09:00', '18:00', '15:00', null, '2026-09-04'),           // 休憩終了なし
         ];
-        $calendar = buildCalendar($month, $rows, self::SETTINGS, '2026-10-15');
+        $calendar = buildCalendar($month, $rows, self::SETTINGS, '2026-10-15', [], '2025-04-01');
 
         $this->assertSame(4, $calendar['workDays']);
         $this->assertSame(480 + 450 + 480, $calendar['totalMinutes']);
@@ -129,7 +129,7 @@ final class RecordsTest extends TestCase {
 
     public function testBuildCalendarToday(): void {
         $month = resolveMonth(null, '2026-10-15', '2025-04-01');
-        $calendar = buildCalendar($month, [self::row('09:00', null, '12:30')], self::SETTINGS, '2026-10-15');
+        $calendar = buildCalendar($month, [self::row('09:00', null, '12:30')], self::SETTINGS, '2026-10-15', [], '2025-04-01');
         $today = array_values(array_filter(array_merge(...$calendar['weeks']), fn ($c) => $c !== null && $c['isToday']));
         $this->assertCount(1, $today);
         $this->assertSame(['2026-10-15', '12:30–休憩中'], [$today[0]['date'], $today[0]['break']]);

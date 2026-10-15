@@ -1,8 +1,10 @@
 <?php
-// メイン画面（FR-003）：現在時刻と、本日の出勤・退勤・休憩。ボタンを押すと、js/main.js が api/attendance.php に送る
+// メイン画面（FR-003、FR-008）：現在時刻と、本日の出勤・退勤・休憩、簡単残業申請
+// ボタンを押すと、js/main.js が api/attendance.php（出退勤）・api/requests.php（残業申請）に送る
 include_once(__DIR__ . '/src/functions.php');
 include_once(__DIR__ . '/src/dbconnect.php');
 include_once(__DIR__ . '/src/auth.php');
+include_once(__DIR__ . '/src/queries/work_settings.php');
 include_once(__DIR__ . '/src/attendance.php');
 
 $currentUser = requireLogin($pdo);
@@ -14,7 +16,8 @@ $dateLabel = date('Y年n月j日', $now) . '（' . $weekdays[(int) date('w', $now
 
 $view = null;
 if ($isEmployee) {
-    $view = attendanceView(fetchAttendance($pdo, $currentUser['employee_id'], workDateOf($now)));
+    $standardEnd = fetchWorkSettings($pdo)['standard_end'];
+    $view = attendanceView(fetchAttendance($pdo, $currentUser['employee_id'], workDateOf($now)), $standardEnd);
     $headerStatus = $view;
 }
 
@@ -32,6 +35,7 @@ include(__DIR__ . '/templates/header.php');
     <?php else: ?>
         <div id="attendance"
             data-api-url="<?= h(appUrl('api/attendance.php')) ?>"
+            data-request-api-url="<?= h(appUrl('api/requests.php')) ?>"
             data-login-url="<?= h(appUrl('login.php')) ?>"
             data-csrf-token="<?= h(csrfToken()) ?>"
             data-view="<?= h(json_encode($view, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) ?>">
@@ -55,6 +59,11 @@ include(__DIR__ . '/templates/header.php');
                     <button class="punch__button punch__button--<?= h(str_replace('_', '-', $action)) ?>" type="button" data-action="<?= h($action) ?>" <?= $view['buttons'][$action] ? '' : 'disabled' ?>><?= h($label) ?></button>
                 <?php endforeach; ?>
             </div>
+
+            <div class="overtime">
+                <button class="overtime__button" type="button" id="overtime-open" <?= $view['buttons']['overtime'] ? '' : 'disabled' ?>>簡単残業申請</button>
+                <p class="overtime__note">退勤済みで、退勤が <?= h(formatTime($standardEnd)) ?> より後の場合に申請できます</p>
+            </div>
         </div>
 
         <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -66,6 +75,28 @@ include(__DIR__ . '/templates/header.php');
                 <div class="dialog__actions">
                     <button class="button button--outline" type="submit" value="cancel">キャンセル</button>
                     <button class="button button--primary" type="submit" value="ok">上書きする</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- 簡単残業申請（FR-008）。理由の欄は無い（D-041） -->
+        <dialog class="dialog" id="overtime-dialog" aria-labelledby="overtime-title">
+            <form class="dialog__body" id="overtime-form" novalidate>
+                <h2 class="dialog__title" id="overtime-title">簡単残業申請</h2>
+                <p class="alert alert--error" id="overtime-error-form" role="alert" hidden></p>
+                <dl class="overtime-times">
+                    <div class="overtime-times__item"><dt>標準終了時刻</dt><dd id="overtime-standard-end"><?= h(formatTime($standardEnd)) ?></dd></div>
+                    <div class="overtime-times__item"><dt>退勤時刻</dt><dd id="overtime-check-out"><?= h($view['checkOut']) ?></dd></div>
+                </dl>
+                <div class="form-field">
+                    <label class="form-field__label" for="overtime-end">残業の終了時刻</label>
+                    <input class="form-field__input" type="time" id="overtime-end" name="overtime_end" step="60" required>
+                    <p class="form-field__error" id="overtime-error-overtime_end" hidden></p>
+                    <p class="dialog__help"><?= h(formatTime($standardEnd)) ?> より後、退勤時刻までの時刻を指定できます。</p>
+                </div>
+                <div class="dialog__actions">
+                    <button class="button button--outline" type="button" id="overtime-cancel">キャンセル</button>
+                    <button class="button button--primary" type="submit" id="overtime-submit">申請する</button>
                 </div>
             </form>
         </dialog>

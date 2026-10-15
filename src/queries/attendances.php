@@ -4,7 +4,8 @@
 // 値は bindValue で渡す（D-060）。社員 ID・日付・日時は、どれも文字列なので、型は PDO::PARAM_STR
 
 // 社員の、ある日の勤怠を取得する
-// 戻り値：['check_in_at' => '2026-10-15 09:01:00', 'check_out_at' => null, 'break_start_at' => null, 'break_end_at' => null]。見つからなければ null
+// 戻り値：['check_in_at' => '2026-10-15 09:01:00', 'check_out_at' => null, 'break_start_at' => null, 'break_end_at' => null, 'overtime_end_at' => null]。見つからなければ null
+// TODO（依頼者・PR 5）：取得する列に、overtime_end_at（承認済みの残業終了時刻）を追加する（簡単残業申請で、申請した時点の値として控える）
 function fetchAttendance(PDO $pdo, string $employeeId, string $workDate): ?array {
     // TODO（依頼者）：勤怠を1行取得して返す
     // 1. SQL を書く：attendances から check_in_at, check_out_at, break_start_at, break_end_at を取得

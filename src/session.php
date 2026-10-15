@@ -56,3 +56,15 @@ function requireValidCsrfToken(): void {
         abort(400, '不正なリクエストです。画面を開き直して、もう一度お試しください。');
     }
 }
+
+// 次に表示する画面で、1回だけ出す通知（例：申請を受け付けたあと、画面を読み込み直して出す）
+function setFlash(string $message): void {
+    $_SESSION['flash'] = $message;
+}
+
+// 通知を取り出す（取り出したら消える）。無ければ null
+function takeFlash(): ?string {
+    $message = $_SESSION['flash'] ?? null;
+    unset($_SESSION['flash']);
+    return is_string($message) ? $message : null;
+}
