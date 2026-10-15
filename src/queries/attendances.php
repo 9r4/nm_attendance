@@ -16,7 +16,7 @@ function fetchAttendance(PDO $pdo, string $employeeId, string $workDate): ?array
     // 5. 見つからなかったら null、見つかったらその行を返す（return $row === false ? null : $row;）
     // throw new RuntimeException('fetchAttendance は未実装です');
 
-    $sql = 'SELECT check_in_at, check_out_at, break_start_at, break_end_at FROM attendances WHERE employee_id = :employee_id AND work_date = :work_date';
+    $sql = 'SELECT check_in_at, check_out_at, break_start_at, break_end_at, overtime_end_at FROM attendances WHERE employee_id = :employee_id AND work_date = :work_date';
     $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
     $stmt->bindValue(':work_date', $workDate, PDO::PARAM_STR);

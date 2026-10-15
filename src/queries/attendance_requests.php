@@ -20,7 +20,21 @@ function insertCorrectionRequest(PDO $pdo, string $employeeId, string $targetDat
     //        $stmt->bindValue(':original_check_in_at', $original['check_in_at'], PDO::PARAM_STR);
     // 4. execute() する
     //    申請中の同じ申請があると、一意制約の違反（BR-002）で例外になる。呼び出し側（src/requests.php）で受け止めるので、try catch は書かない
-    throw new RuntimeException('insertCorrectionRequest は未実装です');
+    // throw new RuntimeException('insertCorrectionRequest は未実装です');
+    $sql = 'INSERT INTO attendance_requests (employee_id, target_date, request_type, requested_check_in_at, requested_check_out_at, requested_break_start_at, requested_break_end_at, original_check_in_at, original_check_out_at, original_break_start_at, original_break_end_at, reason) VALUES (:employee_id, :target_date, \'correction\', :requested_check_in_at, :requested_check_out_at, :requested_break_start_at, :requested_break_end_at, :original_check_in_at, :original_check_out_at, :original_break_start_at, :original_break_end_at, :reason)';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
+    $stmt->bindValue(':target_date', $targetDate, PDO::PARAM_STR);
+    $stmt->bindValue(':requested_check_in_at', $requested['check_in_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':requested_check_out_at', $requested['check_out_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':requested_break_start_at', $requested['break_start_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':requested_break_end_at', $requested['break_end_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':original_check_in_at', $original['check_in_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':original_check_out_at', $original['check_out_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':original_break_start_at', $original['break_start_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':original_break_end_at', $original['break_end_at'], PDO::PARAM_STR);
+    $stmt->bindValue(':reason', $reason, PDO::PARAM_STR);
+    $stmt->execute();
 }
 
 // 簡単残業申請を保存する
@@ -32,7 +46,14 @@ function insertOvertimeRequest(PDO $pdo, string $employeeId, string $targetDate,
     //    VALUES (:employee_id, :target_date, 'overtime', :requested_overtime_end_at, :original_overtime_end_at)
     // 2. prepare → 3. bindValue（4 個。型は PDO::PARAM_STR） → 4. execute
     //    （insertCorrectionRequest と同じく、try catch は書かない）
-    throw new RuntimeException('insertOvertimeRequest は未実装です');
+    // throw new RuntimeException('insertOvertimeRequest は未実装です');
+    $sql = 'INSERT INTO attendance_requests (employee_id, target_date, request_type, requested_overtime_end_at, original_overtime_end_at) VALUES (:employee_id, :target_date, \'overtime\', :requested_overtime_end_at, :original_overtime_end_at)';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
+    $stmt->bindValue(':target_date', $targetDate, PDO::PARAM_STR);
+    $stmt->bindValue(':requested_overtime_end_at', $overtimeEndAt, PDO::PARAM_STR);
+    $stmt->bindValue(':original_overtime_end_at', $originalOvertimeEndAt, PDO::PARAM_STR);
+    $stmt->execute();
 }
 
 // 社員の、期間（初日〜末日）の申請を、対象日・申請の順に全部取得する（記録表示で使う）
@@ -48,5 +69,12 @@ function fetchMonthlyRequests(PDO $pdo, string $employeeId, string $fromDate, st
     //    並び順：ORDER BY target_date, created_at, id
     // 2. prepare → 3. bindValue（3 個） → 4. execute して fetchAll()
     // 5. 取得した配列を、そのまま return する
-    throw new RuntimeException('fetchMonthlyRequests は未実装です');
+    // throw new RuntimeException('fetchMonthlyRequests は未実装です');
+    $sql = 'SELECT * FROM attendance_requests WHERE employee_id = :employee_id AND target_date BETWEEN :from_date AND :to_date ORDER BY target_date, created_at, id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
+    $stmt->bindValue(':from_date', $fromDate, PDO::PARAM_STR);
+    $stmt->bindValue(':to_date', $toDate, PDO::PARAM_STR);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
