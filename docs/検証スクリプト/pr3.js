@@ -218,7 +218,8 @@ const hm = () => new Intl.DateTimeFormat('ja-JP', { timeZone: 'Asia/Tokyo', hour
   const sctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const sp = await sctx.newPage();
   await login(sp, 'sysadmin', 'Admin1234');
-  check('ボタン・状態バッジなし、案内あり', (await sp.$$('[data-action]')).length === 0 && !(await sp.$('#status-badge')) && (await sp.textContent('main')).includes('システム管理者には、出退勤の記録はありません。'));
+  // PR 7（D-067）から、案内の代わりに管理の画面へのボタンを出す
+  check('ボタン・状態バッジなし、管理の画面へのボタンあり', (await sp.$$('[data-action]')).length === 0 && !(await sp.$('#status-badge')) && (await sp.$$('.admin-links__item')).length === 3);
   const t3 = await sp.textContent('#clock-time'); await sp.waitForTimeout(1200);
   check('時計は動く', t3 !== await sp.textContent('#clock-time'));
   const sa = await sp.evaluate(async () => {
