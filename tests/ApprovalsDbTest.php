@@ -118,7 +118,10 @@ final class ApprovalsDbTest extends TestCase {
         $rows = fetchProcessedRequests($this->pdo, '2025002', $this->departmentId('営業部'), 3);
         $this->assertSame([$ids[4], $ids[3], $ids[2]], array_map(fn ($r) => (int) $r['id'], $rows)); // 新しい順・件数
         $this->assertSame(['rejected', 'NG', '佐藤 花子', '山田 太郎', '営業部'], [$rows[0]['status'], $rows[0]['review_comment'], $rows[0]['reviewer_name'], $rows[0]['name'], $rows[0]['department_name']]);
-        $this->assertArrayHasKey('reviewed_at', $rows[0]);
+        // 画面に出す列がそろっていること（申請日時・変更前と申請値・理由）
+        foreach (['reviewed_at', 'created_at', 'target_date', 'request_type', 'reason', 'requested_check_in_at', 'original_check_in_at', 'requested_overtime_end_at', 'original_overtime_end_at'] as $column) {
+            $this->assertArrayHasKey($column, $rows[0], $column);
+        }
         $all = fetchProcessedRequests($this->pdo, '2025001', null, 50);
         $this->assertSame($dev, (int) $all[0]['id']);
         $this->assertCount(1, $all); // 2025001 自身の申請は除く
