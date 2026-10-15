@@ -4,9 +4,58 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "713e4fcb1fafa1c6ee114a39d09c6146",
+    "content-hash": "9e469e37bd05fe5258a592872b62ff7b",
     "packages": [],
     "packages-dev": [
+        {
+            "name": "holiday-jp/holiday_jp",
+            "version": "v2.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/holiday-jp/holiday_jp-php.git",
+                "reference": "63bbaec17ebb6b587ba00411dc03fad4e27adb44"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/holiday-jp/holiday_jp-php/zipball/63bbaec17ebb6b587ba00411dc03fad4e27adb44",
+                "reference": "63bbaec17ebb6b587ba00411dc03fad4e27adb44",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">= 5.3.3"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^4.8.35 || ^5.7 || ^6.0",
+                "symfony/yaml": ">=2.4.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "HolidayJp\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Ken'ichiro Oyama",
+                    "homepage": "https://github.com/k1LoW",
+                    "role": "Author"
+                }
+            ],
+            "description": "Japanese holidays",
+            "keywords": [
+                "date",
+                "holiday"
+            ],
+            "support": {
+                "issues": "https://github.com/holiday-jp/holiday_jp-php/issues",
+                "source": "https://github.com/holiday-jp/holiday_jp-php/tree/v2.3.0"
+            },
+            "time": "2020-12-06T10:41:28+00:00"
+        },
         {
             "name": "myclabs/deep-copy",
             "version": "1.14.0",

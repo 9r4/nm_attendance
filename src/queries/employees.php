@@ -2,7 +2,8 @@
 // 社員（employees テーブル）を読み書きする関数
 
 // 社員 ID で、社員の氏名と部署名を取得する（ヘッダーの表示に使う）
-// 戻り値：['employee_id' => '2025001', 'name' => '山田 太郎', 'department_name' => '営業部']。見つからなければ null
+// 戻り値：['employee_id' => '2025001', 'name' => '山田 太郎', 'department_name' => '営業部', 'joined_on' => '2025-04-01']。見つからなければ null
+// TODO（依頼者・PR 4）：取得する列に、入社日 e.joined_on を追加する（記録表示で、前の月へ戻れる範囲に使う）
 function fetchEmployeeProfile(PDO $pdo, string $employeeId): ?array {
     // TODO（依頼者）：社員と部署を結合（JOIN）して取得する
     // 1. SQL を書く：

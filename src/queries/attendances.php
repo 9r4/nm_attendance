@@ -101,3 +101,17 @@ function updateBreakEnd(PDO $pdo, string $employeeId, string $workDate, string $
     $stmt->bindValue(':break_end_at', $breakEndAt, PDO::PARAM_STR);
     $stmt->execute();
 }
+
+// 社員の、期間（初日〜末日）の勤怠を、日付の順に全部取得する（記録表示で使う）
+// 戻り値：[['work_date' => '2026-10-01', 'check_in_at' => '2026-10-01 09:01:00', 'check_out_at' => …, 'break_start_at' => …, 'break_end_at' => …], …]。記録が無ければ []
+function fetchMonthlyAttendances(PDO $pdo, string $employeeId, string $fromDate, string $toDate): array {
+    // TODO（依頼者）：期間の勤怠を、複数行まとめて取得して返す（初めての fetchAll）
+    // 1. SQL を書く：attendances から work_date, check_in_at, check_out_at, break_start_at, break_end_at を取得
+    //    条件：employee_id = :employee_id AND work_date BETWEEN :from_date AND :to_date（BETWEEN は両端の日を含む）
+    //    並び順：ORDER BY work_date（日付の古い順）
+    // 2. $pdo->prepare() で準備する
+    // 3. 3つの値を bindValue で渡す（型は PDO::PARAM_STR）
+    // 4. execute() して、fetchAll() で全部の行を取得する（fetch() は1行だけなので、ここでは使わない）
+    // 5. 取得した配列を、そのまま return する（行が無いときは、fetchAll() が空の配列 [] を返すので、null にしない）
+    throw new RuntimeException('fetchMonthlyAttendances は未実装です');
+}

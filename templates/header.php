@@ -19,14 +19,24 @@ $headerStatus = $headerStatus ?? null;
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=block">
     <link rel="stylesheet" href="<?= h(appUrl('css/style.css')) ?>">
+    <?php if ($currentUser !== null): ?>
+        <script src="<?= h(appUrl('js/menu.js')) ?>" defer></script>
+    <?php endif; ?>
 </head>
 
 <body>
     <header class="app-header">
-        <a class="app-header__brand" href="<?= h(appUrl()) ?>">
-            <span class="material-symbols-outlined app-header__icon" aria-hidden="true">schedule</span>
-            <span class="app-header__name">勤怠管理</span>
-        </a>
+        <div class="app-header__left">
+            <?php if ($currentUser !== null): ?>
+                <button class="app-header__menu-button" type="button" id="menu-open" aria-label="メニューを開く" aria-controls="menu" aria-expanded="false">
+                    <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+                </button>
+            <?php endif; ?>
+            <a class="app-header__brand" href="<?= h(appUrl()) ?>">
+                <span class="material-symbols-outlined app-header__icon" aria-hidden="true">schedule</span>
+                <span class="app-header__name">勤怠管理</span>
+            </a>
+        </div>
         <?php if ($currentUser !== null): ?>
             <div class="app-header__user">
                 <div class="app-header__profile">
@@ -45,3 +55,6 @@ $headerStatus = $headerStatus ?? null;
             </div>
         <?php endif; ?>
     </header>
+    <?php if ($currentUser !== null): ?>
+        <?php include(__DIR__ . '/menu.php'); ?>
+    <?php endif; ?>
