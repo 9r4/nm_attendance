@@ -28,7 +28,7 @@
 
 - `dbconnect.php`（PDO の接続）、`functions.php`（`h()`）という名前と役割。
 - DB の接続情報（DB 名・ユーザー・パスワード）を、`dbconnect.php` に直接書く（ハードコーディング。2026-10-13 依頼者の判断、D-045。学習用で外部に公開しないため。注意点は [技術方針.md](./技術方針.md) 2-2）。
-- 名前付きプレースホルダ＋`bindParam`（型を明示）＋`execute()` の流れ。
+- 名前付きプレースホルダ＋型の明示＋`execute()` の流れ。値は **`bindValue`** で渡す（2026-10-15 変更。D-060。既存コードは `bindParam`）。PR 1 の `fetchWorkSettings()` は `bindParam` のまま（動作は同じ）。
 - `fetchAll()` と `fetch()` の使い分け。
 - 画面の `<?= h(…) ?>` による出力。
 
@@ -59,9 +59,9 @@
 | 更新後に `header('Location: …'); exit;` で別の画面へ戻る（画面遷移） | **形は必要、遷移先は画面ごとに決める**。POST のあとにリダイレクトする形（二重送信の防止）は、申請・承認・アカウント作成などの画面で必要。ただし、遷移先は「一覧」とは限らず（例：申請後は記録表示に完了メッセージ付きで戻る、アカウント作成後は同じ画面に留まる）、**画面設計（画面遷移）で決める**。出退勤・休憩のように JavaScript から API（JSON）を呼ぶ操作は、リダイレクトしない（JSON を返し、画面を書き換える） |
 | 画面・処理ごとに PHP ファイルを分ける（`createForm.php`、`create.php`、`editForm.php`、`update.php`、`delete.php`） | **そのままは採用しない**。本プロジェクトの画面は少なく（ログイン・メイン・記録表示・承認・アカウント管理）、操作ごとにファイルを分けると数が増える。**画面ごとに1つの PHP が、表示（GET）と更新（POST）を処理する**形にする。ファイルが増える場合は、機能ごとのフォルダに整理する（[技術方針.md](./技術方針.md) 2-1）。`index.php` はリポジトリ直下に置く |
 
-> **社員 ID（`employee_id`、`reviewer_id`、`login_id`）は文字列**（例：`2026001`、`2026A01`）。`bindParam` には必ず `PDO::PARAM_STR` を指定する（既存コードの `id` のように `PDO::PARAM_INT` を使うと、英字を含む値が壊れる）。`departments.id` や `attendances.id` など、数値の `id` は `PDO::PARAM_INT`。
+> **社員 ID（`employee_id`、`reviewer_id`、`login_id`）は文字列**（例：`2026001`、`2026A01`）。`bindValue` には必ず `PDO::PARAM_STR` を指定する（既存コードの `id` のように `PDO::PARAM_INT` を使うと、英字を含む値が壊れる）。`departments.id` や `attendances.id` など、数値の `id` は `PDO::PARAM_INT`。
 
-> `bindParam` は変数を**参照**で結びつける。`execute()` の前に変数の値が変わると、変わった値が使われる。`bindParam` には必ず変数を渡し、定数や式を直接渡す場合は `bindValue` を使う。
+> `bindValue` は、呼んだ時点の値を渡す（定数や式もそのまま渡せる）。`bindParam` は変数を**参照**で結びつけ、`execute()` の前に変数の値が変わると変わった値が使われるため、本プロジェクトでは `bindValue` に揃える（D-060）。
 
 ## 4. 書き方の見本
 
@@ -127,8 +127,7 @@ include_once(__DIR__ . '/src/functions.php');
 
 $sql = "SELECT id, name FROM departments WHERE is_active = :is_active ORDER BY id ASC";
 $stmt = $pdo->prepare($sql);
-$is_active = 1;
-$stmt->bindParam(':is_active', $is_active, PDO::PARAM_INT);
+$stmt->bindValue(':is_active', 1, PDO::PARAM_INT);
 $stmt->execute();
 $departments = $stmt->fetchAll();
 ?>
@@ -149,7 +148,7 @@ $name = $_POST['name'];
 
 $sql = "INSERT INTO departments(name) VALUES(:name)";
 $stmt = $pdo->prepare($sql);
-$stmt->bindParam(':name', $name, PDO::PARAM_STR);
+$stmt->bindValue(':name', $name, PDO::PARAM_STR);
 $stmt->execute();
 
 header('Location: ./departments.php');
@@ -166,7 +165,7 @@ $name = $_POST['name'];
 
 $sql = "INSERT INTO departments(name) VALUES(:name)";
 $stmt = $pdo->prepare($sql);
-$stmt->bindParam(':name', $name, PDO::PARAM_STR);
+$stmt->bindValue(':name', $name, PDO::PARAM_STR);
 
 try {
     $stmt->execute();
@@ -188,7 +187,7 @@ exit;
 ```php
 $pdo->beginTransaction();
 try {
-    // ここに複数の SQL（prepare → bindParam → execute）を書く
+    // ここに複数の SQL（prepare → bindValue → execute）を書く
     $pdo->commit();
 } catch (\Throwable $e) {
     $pdo->rollBack();
