@@ -25,3 +25,39 @@ function fetchEmployeeProfile(PDO $pdo, string $employeeId): ?array {
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row === false ? null : $row;
 }
+
+// 社員を追加する（PR 7 のアカウント作成。在籍状態は DB の既定値の「在籍（active）」、退社日は NULL になる）
+// $employeeId：採番した社員コード（例：'2026001'）。$joinedOn：入社日（'2026-10-15'）
+// 同じメールアドレスの社員がいると、DB の一意制約のエラー（PDOException）になる。呼び出し側（src/admin.php）が受け止めるので、ここでは確かめない
+function insertEmployee(PDO $pdo, string $employeeId, string $name, string $email, int $departmentId, string $joinedOn): void {
+    // TODO（依頼者）：社員を追加する
+    // 1. SQL を書く：INSERT INTO employees (employee_id, name, email, department_id, joined_on) VALUES (:employee_id, :name, :email, :department_id, :joined_on)
+    // 2. prepare → bindValue（:department_id だけ数値なので PDO::PARAM_INT、ほかは PDO::PARAM_STR）→ execute
+    throw new RuntimeException('insertEmployee は未実装です');
+}
+
+// アカウント管理の一覧：社員・管理者の全員（退職も含む）を、社員コード順に取得する
+// システム管理者は employees に無いので、JOIN で自然に除かれる
+// 戻り値：行の配列。[['employee_id', 'name', 'email', 'joined_on', 'left_on', 'employment_status', 'department_name', 'role', 'approval_scope', 'is_active'], …]
+function fetchAccounts(PDO $pdo): array {
+    // TODO（依頼者）：3つの表（社員・部署・ログイン情報）を JOIN して取得する
+    // 1. SQL を書く：
+    //    SELECT e.employee_id, e.name, e.email, e.joined_on, e.left_on, e.employment_status,
+    //      d.name AS department_name, l.role, l.approval_scope, l.is_active
+    //    FROM employees e
+    //    JOIN departments d ON d.id = e.department_id
+    //    JOIN login_accounts l ON l.employee_id = e.employee_id
+    //    ORDER BY e.employee_id
+    // 2. prepare → execute（プレースホルダが無いので、bindValue は不要）
+    // 3. fetchAll() の結果を返す
+    throw new RuntimeException('fetchAccounts は未実装です');
+}
+
+// 社員の在籍状態と退社日を変える（無効化：'retired' と退社日、有効に戻す：'active' と null）
+// ログイン情報の利用可否（updateLoginActive()）と一緒に、呼び出し側（src/admin.php）が1つのトランザクションで呼ぶ
+function updateEmploymentStatus(PDO $pdo, string $employeeId, string $status, ?string $leftOn): void {
+    // TODO（依頼者）：在籍状態と退社日を変える
+    // 1. SQL を書く：UPDATE employees SET employment_status = :status, left_on = :left_on WHERE employee_id = :employee_id
+    // 2. prepare → bindValue（3つとも PDO::PARAM_STR。$leftOn が null なら、そのまま渡せば DB に NULL が入る）→ execute
+    throw new RuntimeException('updateEmploymentStatus は未実装です');
+}
