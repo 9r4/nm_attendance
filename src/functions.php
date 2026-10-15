@@ -1,6 +1,9 @@
 <?php
 // 共通の関数
 
+// 時刻は、すべて日本時間（BR-004）
+date_default_timezone_set('Asia/Tokyo');
+
 // 画面に出す値をエスケープする（XSS 対策）。NULL は空文字にする
 function h($value) {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
@@ -27,6 +30,14 @@ function formatTime(?string $time): string {
 function redirect(string $path = ''): never {
     header('Location: ' . appUrl($path));
     exit;
+}
+
+// JSON を返して、処理を終える（API の応答）
+function jsonResponse(int $status, array $data): never {
+    http_response_code($status);
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-store');
+    exit(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 }
 
 // 定型の文と HTTP の状態を返して、処理を終える（例：abort(403, 'この画面を使う権限がありません。')）

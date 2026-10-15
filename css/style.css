@@ -298,30 +298,206 @@ textarea {
     font-size: 14px;
 }
 
-/* 勤務設定の一覧（仮のメイン画面） */
-.settings {
+/* ヘッダーの状態バッジ（メイン画面） */
+.status-badge {
+    padding: 6px 14px;
+    border-radius: 999px;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.status-badge--not-started {
+    background: var(--color-neutral-bg);
+    color: var(--color-text-muted);
+}
+
+.status-badge--working {
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+}
+
+.status-badge--on-break {
+    background: var(--color-warning-bg);
+    color: var(--color-warning-text);
+}
+
+.status-badge--finished {
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+}
+
+/* メイン画面 */
+.main-screen {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 56px 16px;
+}
+
+.clock {
+    text-align: center;
+}
+
+.clock__date {
+    color: var(--color-text-sub);
+    font-size: 20px;
+}
+
+.clock__time {
+    font-size: 96px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 本日の記録 */
+.today {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
-    margin-top: 24px;
 }
 
-.settings__row {
+.today__item {
     padding: 14px 20px;
-    background: var(--color-bg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-m);
 }
 
-.settings__row dt {
+.today__item dt {
     color: var(--color-text-sub);
     font-size: 13px;
 }
 
-.settings__row dd {
+.today__item dd {
     white-space: nowrap;
     font-size: 24px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+}
+
+/* 出退勤・休憩のボタン */
+.punch {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 28px;
+}
+
+.punch__button {
+    height: 64px;
+    border: 2px solid var(--color-primary);
+    border-radius: var(--radius-l);
+    background: var(--color-surface);
+    color: var(--color-primary);
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.punch__button--check-in,
+.punch__button--check-out {
+    height: 96px;
+    color: #FFFFFF;
+    font-size: 24px;
+}
+
+.punch__button--check-in {
+    background: var(--color-primary);
+}
+
+.punch__button--check-out {
+    border-color: var(--color-danger);
+    background: var(--color-danger);
+}
+
+.punch__button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* 操作の結果の通知（画面上部に重ねて表示） */
+.toast {
+    position: fixed;
+    top: 88px;
+    left: 50%;
+    z-index: 10;
+    max-width: calc(100% - 32px);
+    padding: 12px 24px;
+    background: var(--color-success-bg);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-m);
+    color: var(--color-success-text);
+    font-size: 15px;
+    font-weight: 600;
+    transform: translateX(-50%);
+}
+
+.toast[hidden] {
+    display: none;
+}
+
+.toast--error {
+    background: var(--color-error-bg);
+    border-color: var(--color-danger);
+    color: var(--color-error-text);
+}
+
+/* 確認ダイアログ */
+.dialog {
+    width: calc(100% - 32px);
+    max-width: 460px;
+    margin: auto;
+    padding: 0;
+    background: var(--color-surface);
+    border: 0;
+    border-radius: var(--radius-l);
+    color: var(--color-text);
+}
+
+.dialog::backdrop {
+    background: rgba(30, 36, 34, 0.5);
+}
+
+.dialog__body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 32px;
+}
+
+.dialog__title {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.dialog__text {
+    color: var(--color-text-muted);
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+.dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.dialog__actions .button {
+    min-height: 48px;
+    padding: 0 24px;
+}
+
+/* 狭い画面では、ヘッダーのアプリ名を隠し、アイコンだけにする */
+@media (max-width: 480px) {
+    .app-header__name {
+        display: none;
+    }
 }
 
 @media (max-width: 600px) {
@@ -337,12 +513,63 @@ textarea {
         display: none;
     }
 
+    .app-header__user-name {
+        max-width: 8em;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .app-header .button {
+        white-space: nowrap;
+    }
+
     .login__card {
         padding: 28px 20px;
     }
 
-    .settings {
+    .status-badge {
+        padding: 4px 10px;
+        font-size: 13px;
+    }
+
+    .main-screen {
+        gap: 20px;
+        padding: 32px 16px;
+    }
+
+    .clock__time {
+        font-size: 64px;
+    }
+
+    .today {
         grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .today__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+    }
+
+    .today__item dd {
+        font-size: 20px;
+    }
+
+    .punch {
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .punch__button--check-in,
+    .punch__button--check-out {
+        height: 80px;
+    }
+
+    .dialog__body {
+        padding: 24px;
     }
 
     .card {

@@ -1,0 +1,12 @@
+{
+    "name": "nm/attendance",
+    "description": "勤怠管理システム（自動テストの道具だけを入れる。開発時のみ使う）",
+    "type": "project",
+    "license": "proprietary",
+    "require-dev": {
+        "phpunit/phpunit": "^11.5"
+    },
+    "scripts": {
+        "test": "phpunit tests"
+    }
+}
