@@ -208,7 +208,7 @@ DB設計を変更したとき、**すでにテーブルを作成済みの DB** �
 | # | ファイル | 内容 | 決定事項 | 適用状況（WSL） |
 | --- | --- | --- | --- | --- |
 | 1 | `2026-10-01_employee_code_to_employee_id.sql` | 列名・テーブル名の変更（`employee_code`→`employee_id` ほか） | D-040 | 適用済み（2026-10-01） |
-| 2 | `2026-10-01_request_reason_nullable.sql` | 申請の理由を任意（NULL 可）に変更 | D-041 | **未適用** |
+| 2 | `2026-10-01_request_reason_nullable.sql` | 申請の理由を任意（NULL 可）に変更 | D-041 | 適用済み（2026-10-15 に依頼者が `SHOW COLUMNS` で確認。`reason` は NULL 可） |
 
 > 適用したら、上の表の「適用状況」を更新する（Claude が、報告を受けて更新する）。
 
