@@ -257,7 +257,7 @@ $currentPath = preg_replace('#index\.php$#', '', parse_url($_SERVER['REQUEST_URI
     });
 ```
 
-- メニューの外側（暗くなった部分）を押したら閉じる。
+- メニューの外側（暗くなった部分）を押したら閉じる。なお、`<dialog>` は画面の高さいっぱいだが、中の `<nav>` はリンクの分の高さしかない。そのため、リンクの下の白い空いた所を押しても `event.target` は `<dialog>` になり、メニューが閉じる。
 - `event.target`：実際に押された要素。`showModal()` で開いた `<dialog>` の外側（背景）を押すと、`event.target` は `<dialog>` そのものになる。メニューの中身（`<nav>` やリンク）を押したときは、`event.target` はその中身の要素になるので、閉じない。
 
 ```js

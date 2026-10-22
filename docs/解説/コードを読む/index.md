@@ -165,7 +165,7 @@ include(__DIR__ . '/templates/header.php');
 | `data-view` | `attendanceView()` の値を JSON にしたもの | 最初の「今の表示」として `JSON.parse()` する |
 
 - URL を JavaScript に直接書かず、PHP の `appUrl()` で作って渡している。アプリを置く場所が変わっても、JavaScript を直さなくてよい。
-- `json_encode()`：PHP の配列を JSON の文字列にする。`JSON_UNESCAPED_UNICODE` は日本語を `勤` のような形にせず、そのまま出す指定。`JSON_THROW_ON_ERROR` は、変換に失敗したら `false` を返す代わりに例外を投げる指定（失敗に気付ける）。`|` で2つの指定を組み合わせている。
+- `json_encode()`：PHP の配列を JSON の文字列にする。`JSON_UNESCAPED_UNICODE` は、日本語を `\u52e4` のような記号の形（エスケープ）にせず、`勤` のまま出す指定。`JSON_THROW_ON_ERROR` は、変換に失敗したら `false` を返す代わりに例外を投げる指定（失敗に気付ける）。`|` で2つの指定を組み合わせている。
 - JSON を `h()` に通すのは、JSON の `"` が属性の `"…"` を閉じてしまわないようにするため。`"` は `&quot;` になり、ブラウザが属性を読むときに `"` に戻すので、JavaScript には元の JSON が届く。
 
 > **ここが重要**：`data-view` の値と、API が返す `view` の値は、**どちらも `attendanceView()` で作った同じ形**。`js/main.js` は、最初はこの `data-view` を、ボタンを押したあとは API の `view` を、同じ `render()` に渡すだけ。表示の作り方が PHP の1か所にあるので、最初の表示と、押したあとの表示が食い違わない。

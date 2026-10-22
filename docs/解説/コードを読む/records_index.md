@@ -196,7 +196,7 @@ $requestMax = min($month['last'], $today);
 
 - `data-…` 属性は、HTML に好きな値を持たせる仕組み。JavaScript からは `calendar.dataset.days`・`calendar.dataset.apiUrl` のように読める（`data-api-url` は `apiUrl` という名前になる）。
 - `json_encode()`：PHP の配列を JSON の文字列にする。
-  - `JSON_UNESCAPED_UNICODE`：日本語を `日` のような形にせず、そのまま出す（HTML が読みやすく、小さくなる）。
+  - `JSON_UNESCAPED_UNICODE`：日本語を `\u65e5` のような記号の形（エスケープ）にせず、`日` のまま出す（HTML が読みやすく、小さくなる）。
   - `JSON_THROW_ON_ERROR`：変換に失敗したら例外にする。これが無いと、失敗したときに `false` が返り、空の属性になって、JavaScript 側で原因の分からないエラーになる。
 - JSON を `h()` に通してから属性に入れている。JSON には `"` が入るので、そのままだと属性が途中で切れてしまう。`h()` で `&quot;` に変えておくと、ブラウザが属性を読むときに元の `"` に戻すので、`dataset.days` では元の JSON がそのまま取り出せる。
 - `data-csrf-token`：申請を送るときに付ける CSRF トークン（推測できない文字列）。サーバーは、トークンが正しくない POST を受け付けない。別のサイトから勝手に申請を送らせる攻撃（CSRF）を防ぐ。

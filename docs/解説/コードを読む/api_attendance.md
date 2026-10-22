@@ -76,7 +76,7 @@ function jsonResponse(int $status, array $data): never {
 ```
 
 - 戻り値の型 `never`（PHP 8.1 以降）は「この関数は戻ってこない（必ず終わる）」という意味。だから呼ぶ側に `else` や `return` を書かなくても、`if` の後ろには進まない。
-- `JSON_UNESCAPED_UNICODE` は、日本語を `こ…` にせず、そのまま出す指定。`Cache-Control: no-store` は、結果をブラウザに保存させない指定。
+- `JSON_UNESCAPED_UNICODE` は、日本語を `\u3053…` のような記号の形（エスケープ）にせず、そのまま出す指定。`Cache-Control: no-store` は、結果をブラウザに保存させない指定。
 
 ## 3. 門番 2：ログインしているか
 
