@@ -204,6 +204,6 @@ try {
 | Apache | 2.4.66 |
 | MySQL | 8.4.11 |
 
-- Claude の検証環境の PHP は 8.3 系のため、**8.3 でも 8.5 でも動く書き方**にする。8.5 で警告（非推奨）が出ないかは、依頼者の WSL で確認する。
+- Claude の検証環境も、2026-10-22 から同じ版（PHP 8.5.4・Apache 2.4.66・MySQL 8.4.11）で確かめる（[検証スクリプト/README.md](./検証スクリプト/README.md) 1-1）。PHP の非推奨（E_DEPRECATED）も含めて、警告 0 件を確かめる（2026-10-22 時点で 0 件）。
 - PHP の拡張機能は `pdo_mysql` と `mbstring` が必要（2026-10-15 に `mbstring` が無く、申請でエラーになったため追記。[WSL環境へのソース配置手順書.md](./WSL環境へのソース配置手順書.md) 0-3）。新しい拡張機能を使う場合は、方針の段階で WSL に入っているかを確認する。
 - PHP は Apache の `mod_php`（確認済み）。`.htaccess` は使えない（`AllowOverride None`）ため、Apache の設定ファイルで制御する（[技術方針.md](./技術方針.md) 2-1、[Apache設定手順書.md](./Apache設定手順書.md)）。
