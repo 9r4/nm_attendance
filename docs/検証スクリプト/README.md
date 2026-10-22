@@ -9,9 +9,10 @@ Claude の検証環境で、ブラウザ（Playwright）を使って画面の動
 | `pr5.js` | 申請（修正・新規登録・簡単残業申請） | 57 |
 | `pr5補足.js` | 申請中の打刻の制限と取り消し（PR #7） | 20 |
 | `pr6.js` | 承認 | 50 |
+| `pr7.js` | システム管理者（アカウント管理・部署・勤務設定）。最初と最後に、作ったアカウント・部署を消し、テストデータと勤務設定を元に戻す | 90 |
 | `conflict.php` | 同時の出勤で一意制約の違反になる場合（PR 3）。別の接続で行を追加中に、このスクリプトを実行する | － |
 
-PHPUnit（`composer test`）は `tests/` にある。承認の DB を使うテスト（`tests/ApprovalsDbTest.php`）は、環境変数を指定したときだけ動く（下の 3）。
+PHPUnit（`composer test`）は `tests/` にある（PR 7 の時点で 100 件）。DB を使うテスト（`tests/ApprovalsDbTest.php`、`tests/AdminDbTest.php`）は、環境変数を指定したときだけ動く（下の 3）。
 
 ## 1. 検証環境の準備（コンテナが作り直されたら、毎回）
 
@@ -46,7 +47,7 @@ node docs/検証スクリプト/pr6.js
 - `pr5.js` は、月の 6 日以降に実行する（月の 1〜4 日を使うため）。
 - ブラウザは `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`（検証環境に入っているもの）。
 
-## 3. 承認の DB を使うテスト（PHPUnit）
+## 3. DB を使うテスト（PHPUnit。承認・システム管理者）
 
 テスト用の DB（`attendance_test`）の表を、テストのたびに作り直す。本番・開発の DB を指定しないこと。
 

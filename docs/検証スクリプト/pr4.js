@@ -150,7 +150,8 @@ async function detail(page, date) {
   await login(sp, 'sysadmin', 'Admin1234');
   await sp.click('#menu-open');
   links = await sp.$$eval('#menu .menu__link', as => as.map(a => a.textContent));
-  check('システム管理者：メイン画面のみ', JSON.stringify(links) === JSON.stringify(['メイン画面']));
+  // PR 7（D-067）から、システム管理者の画面が加わる（記録表示は出さない）
+  check('システム管理者：メイン画面と管理の画面（記録表示なし）', JSON.stringify(links) === JSON.stringify(['メイン画面', 'アカウント管理', '部署', '勤務設定']));
   const res = await sp.goto(BASE + 'records/');
   check('records/ は 403', res.status() === 403);
   const nctx = await browser.newContext();

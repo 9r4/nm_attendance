@@ -34,7 +34,12 @@ include(__DIR__ . '/templates/header.php');
     </section>
 
     <?php if (!$isEmployee): ?>
-        <p class="alert alert--info">システム管理者には、出退勤の記録はありません。</p>
+        <!-- システム管理者：出退勤の記録は無いので、管理の画面へのボタンを並べる（D-067） -->
+        <nav class="admin-links" aria-label="管理の画面">
+            <?php foreach (ADMIN_MENU_ITEMS as $item): ?>
+                <a class="admin-links__item" href="<?= h(appUrl($item['path'])) ?>"><?= h($item['label']) ?></a>
+            <?php endforeach; ?>
+        </nav>
     <?php else: ?>
         <div id="attendance"
             data-api-url="<?= h(appUrl('api/attendance.php')) ?>"

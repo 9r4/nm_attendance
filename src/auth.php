@@ -9,6 +9,13 @@ const ROLE_EMPLOYEE = 'employee';
 const ROLE_MANAGER = 'manager';
 const ROLE_SYSTEM_ADMIN = 'system_admin';
 
+// システム管理者の画面（メニューと、メイン画面のボタンに使う。D-067）
+const ADMIN_MENU_ITEMS = [
+    ['path' => 'admin/accounts.php', 'label' => 'アカウント管理'],
+    ['path' => 'admin/departments.php', 'label' => '部署'],
+    ['path' => 'admin/settings.php', 'label' => '勤務設定'],
+];
+
 // 存在しない ID でも、パスワードの照合にかかる時間を同じにするためのダミー（何とも一致しない）
 const DUMMY_PASSWORD_HASH = '$2y$10$Qae.ksyHzAjZva91gzGTHerEEdLz5O1RwvcW2jmo4Ueb2A4xD8n6K';
 
