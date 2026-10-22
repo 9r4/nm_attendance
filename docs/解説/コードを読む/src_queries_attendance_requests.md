@@ -206,7 +206,7 @@ ORDER BY r.created_at, r.id
 
 - `$departmentId` が `null`（承認範囲が「全社」）なら、部署の条件を付けない。`null` でなければ `.=` で SQL の後ろに足す。
 - **足すのは決まった文字列だけ**で、値（部署 ID）は必ずプレースホルダで渡している。`$sql .= ' AND e.department_id = ' . $departmentId;` のように値を文字列でつなぐと、SQL インジェクションの入り口になる。
-- `bindValue` も、SQL に足したときだけ呼ぶ。**SQL に無いプレースホルダを `bindValue` すると、`execute()` で「パラメータの数が違う」（SQLSTATE HY093）のエラーになる**。だから `if` が2か所に必要。
+- `bindValue` も、SQL に足したときだけ呼ぶ。**SQL に無いプレースホルダを `bindValue` すると、その `bindValue()` の時点で「そのパラメータは定義されていない」（SQLSTATE HY093）のエラーになる**（この環境の設定：`ATTR_EMULATE_PREPARES => false`）。だから `if` が2か所に必要。
 - 部署 ID は `INT` の列なので **`PDO::PARAM_INT`**。
 
 ## 7. `fetchProcessedRequests()`：承認範囲の、処理済みの申請を読む

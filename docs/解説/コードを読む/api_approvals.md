@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 - `$_SERVER['REQUEST_METHOD']`：送られてきたリクエストの種類（`GET`・`POST` など）。
 - 承認・却下は**データを変える操作**なので、POST だけを受け付ける。GET（URL を開くだけ）で処理してしまうと、リンクを踏ませるだけで承認させられる、といった危険がある。
 - 405（Method Not Allowed）を返すときは、`Allow: POST` のヘッダーで「使えるのは POST」と伝えるのが HTTP の決まり。
-- `jsonResponse()`（`src/functions.php`）：HTTP の状態の番号を決め、配列を JSON にして返し、**そこで処理を終える**（中で `exit`）。戻り値の型が `never`（決して戻らない）になっているので、`if` の後ろに `else` を書かなくても、下の行は実行されない。
+- `jsonResponse()`（`src/functions.php`）：HTTP の状態の番号を決め、配列を JSON にして返し、**そこで処理を終える**（中で `exit`）。中で `exit` するので、`if` の後ろに `else` を書かなくても、下の行は実行されない。戻り値の型 `never` は「この関数は戻ってこない」という印（PHP がその約束を確かめる）で、処理を止めているのは `exit`。
 
 ## 3. ログインしていなければ 401
 

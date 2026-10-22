@@ -225,7 +225,7 @@ $updatedAt = isset($settings['updated_at']) ? date('Y/m/d H:i', strtotime($setti
             <p class="alert alert--info">変更は、すぐに全社員に反映されます。過去の日も含めて、記録表示の労働時間は新しい昼休憩で計算し直されます。簡単残業申請・承認画面の標準終了時刻も、新しい値になります。</p>
 ```
 
-- 勤務設定は全社共通の1行で、変えた日の履歴を持たない（D-019、D-067）。記録表示などは、表示のたびに今の設定を読んで計算するので、過去の日の労働時間も変わる。そのことを、保存する前に知らせている。
+- 勤務設定は全社共通の1行で、変えた日の履歴を持たない（全社共通は D-008、履歴を持たないのは D-067）。記録表示などは、表示のたびに今の設定を読んで計算するので、過去の日の労働時間も変わる。そのことを、保存する前に知らせている。
 
 ## 11. ウィンドウが無い画面でも `js/admin.js` を読む
 
@@ -262,4 +262,4 @@ $updatedAt = isset($settings['updated_at']) ? date('Y/m/d H:i', strtotime($setti
 - SQL：`src/queries/departments.php`・`src/queries/work_settings.php`（[src_queries_departments_sequences_work_settings.md](./src_queries_departments_sequences_work_settings.md)）
 - `formatTime()`・`h()`・`redirect()`：`src/functions.php`（[src_functions.md](./src_functions.md)）
 - 勤務設定を使う側：記録表示（`records/index.php`・`src/records.php`）、メイン画面（`index.php`・`api/attendance.php`）、申請（`api/requests.php`）、承認画面（`approvals/index.php`）
-- 決まりごと：[決定事項.md](../../決定事項.md)（D-019、D-067）
+- 決まりごと：[決定事項.md](../../決定事項.md)（D-008、D-067）
