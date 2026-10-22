@@ -110,5 +110,5 @@ include(__DIR__ . '/../templates/header.php');
         </form>
     </dialog>
 </main>
-<script src="<?= h(appUrl('js/approvals.js')) ?>" defer></script>
+<script src="<?= h(assetUrl('js/approvals.js')) ?>" defer></script>
 <?php include(__DIR__ . '/../templates/footer.php'); ?>

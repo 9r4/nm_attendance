@@ -115,5 +115,5 @@ include(__DIR__ . '/templates/header.php');
         </dialog>
     <?php endif; ?>
 </main>
-<script src="<?= h(appUrl('js/main.js')) ?>" defer></script>
+<script src="<?= h(assetUrl('js/main.js')) ?>" defer></script>
 <?php include(__DIR__ . '/templates/footer.php'); ?>

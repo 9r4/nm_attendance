@@ -21,6 +21,14 @@ function appUrl(string $path = ''): string {
     return rtrim($base, '/') . '/' . ltrim($path, '/');
 }
 
+// CSS・JS の URL を作る。後ろに、ファイルを最後に変えた日時を付ける（例：/attendance/css/style.css?v=1761100000。D-068）
+// ファイルを変えると URL が変わるので、ブラウザが古いファイル（キャッシュ）を使わなくなる。ファイルが無いときは、日時を付けない
+function assetUrl(string $path): string {
+    $file = __DIR__ . '/../' . ltrim($path, '/');
+    $time = is_file($file) ? filemtime($file) : false;
+    return appUrl($path) . ($time === false ? '' : '?v=' . $time);
+}
+
 // 'HH:MM:SS' 形式の時刻を 'HH:MM' にする（NULL は '--:--'）
 function formatTime(?string $time): string {
     return $time === null ? '--:--' : substr($time, 0, 5);

@@ -18,9 +18,9 @@ $headerStatus = $headerStatus ?? null;
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=block">
-    <link rel="stylesheet" href="<?= h(appUrl('css/style.css')) ?>">
+    <link rel="stylesheet" href="<?= h(assetUrl('css/style.css')) ?>">
     <?php if ($currentUser !== null): ?>
-        <script src="<?= h(appUrl('js/menu.js')) ?>" defer></script>
+        <script src="<?= h(assetUrl('js/menu.js')) ?>" defer></script>
     <?php endif; ?>
 </head>
 
