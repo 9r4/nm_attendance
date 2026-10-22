@@ -10,9 +10,10 @@ Claude の検証環境で、ブラウザ（Playwright）を使って画面の動
 | `pr5補足.js` | 申請中の打刻の制限と取り消し（PR #7） | 20 |
 | `pr6.js` | 承認 | 50 |
 | `pr7.js` | システム管理者（アカウント管理・部署・勤務設定）。最初と最後に、作ったアカウント・部署を消し、テストデータと勤務設定を元に戻す | 90 |
+| `pr8.js` | CSS・JS のキャッシュ対策（全画面の URL に `?v=` が付く、ファイルを変えると URL が変わる） | 19 |
 | `conflict.php` | 同時の出勤で一意制約の違反になる場合（PR 3）。別の接続で行を追加中に、このスクリプトを実行する | － |
 
-PHPUnit（`composer test`）は `tests/` にある（PR 7 の時点で 100 件）。DB を使うテスト（`tests/ApprovalsDbTest.php`、`tests/AdminDbTest.php`）は、環境変数を指定したときだけ動く（下の 3）。
+PHPUnit（`composer test`）は `tests/` にある（PR 8 の時点で 103 件）。DB を使うテスト（`tests/ApprovalsDbTest.php`、`tests/AdminDbTest.php`）は、環境変数を指定したときだけ動く（下の 3）。
 
 ## 1. 検証環境の準備（コンテナが作り直されたら、毎回）
 
