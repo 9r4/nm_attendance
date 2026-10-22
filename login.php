@@ -18,11 +18,13 @@ if (!empty($_SESSION['timed_out'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    requireValidCsrfToken();
     $loginId = is_string($_POST['login_id'] ?? null) ? trim($_POST['login_id']) : '';
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
 
-    if ($loginId === '' || $password === '') {
+    if (!isValidCsrfToken()) {
+        // 画面を長く開いたままにして、セッション（とトークン）が消えた場合など。ログインはせず、入力し直してもらう（D-069）
+        $errorMessage = '画面の有効期限が切れました。もう一度ログインしてください。';
+    } elseif ($loginId === '' || $password === '') {
         $errorMessage = 'ID とパスワードを入力してください。';
     } elseif (strlen($loginId) <= 20 && attemptLogin($pdo, $loginId, $password)) {
         redirect();

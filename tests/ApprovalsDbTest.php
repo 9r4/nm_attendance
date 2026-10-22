@@ -184,6 +184,17 @@ final class ApprovalsDbTest extends TestCase {
         $this->assertFalse($this->pdo->inTransaction());
     }
 
+    // コメントの長さを確かめるのは、却下のときだけ（承認ではコメントを使わない。D-069）
+    public function testCommentLengthOnlyForReject(): void {
+        $sales = $this->manager(self::SALES_MANAGER);
+        $long = str_repeat('あ', APPROVAL_COMMENT_MAX_LENGTH + 1);
+        $a = $this->addRequest('2025001', '2026-10-12', 'correction', ['check_in_at' => '2026-10-12 09:00:00']);
+        $this->assertSame(['comment' => 'コメントは 500 文字までにしてください。'], reviewRequest($this->pdo, $sales, $a, 'reject', $long)['errors']);
+        $this->assertSame('pending', $this->request($a)['status']);
+        $this->assertTrue(reviewRequest($this->pdo, $sales, $a, 'approve', $long)['ok']);
+        $this->assertSame(['approved', null], [$this->request($a)['status'], $this->request($a)['review_comment']]);
+    }
+
     // 途中で失敗したら、勤怠への反映も元に戻る（トランザクション）
     public function testRollbackWhenStatusUpdateFails(): void {
         $manager = $this->manager(self::SALES_MANAGER);

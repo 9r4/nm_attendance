@@ -117,6 +117,18 @@ final class RequestsTest extends TestCase {
         $this->assertArrayNotHasKey('overtime', attendanceView(null)['buttons']);
     }
 
+    // 今日の残業申請が申請中なら、簡単残業申請のボタンを押せない（D-069）
+    public function testOvertimePending(): void {
+        $finished = self::attendance('09:00', '19:00', null, null, '2026-10-15');
+        $view = attendanceView($finished, '18:00:00', false, true);
+        $this->assertFalse($view['buttons']['overtime']);
+        $this->assertTrue($view['overtimePending']);
+        $this->assertTrue($view['buttons']['check_out']);                    // ほかのボタン（退勤の上書き）は変わらない
+        $this->assertTrue(attendanceView($finished, '18:00:00')['buttons']['overtime']);
+        $this->assertFalse(attendanceView($finished, '18:00:00')['overtimePending']);
+        $this->assertFalse(attendanceView(null)['overtimePending']);
+    }
+
     // ---- 申請内容の表示 ----
     private static function request(string $type, array $requested, array $original, string $status = 'pending', string $date = '2026-10-14', string $created = '2026-10-14 20:00:00'): array {
         $row = ['id' => 1, 'target_date' => $date, 'request_type' => $type, 'reason' => null, 'status' => $status, 'review_comment' => null, 'created_at' => $created];
@@ -180,6 +192,9 @@ final class RequestsTest extends TestCase {
         $this->assertSame('pending', requestBadgeStatus([$pendingOvertime, $approved])); // 申請中を優先
         $this->assertFalse(hasPendingCorrection([$pendingOvertime, $approved]));       // 残業の申請中は、修正の申請を止めない
         $this->assertTrue(hasPendingCorrection([$approved, $pendingCorrection]));
+        $this->assertTrue(hasPendingOvertime([$approved, $pendingOvertime]));
+        $this->assertFalse(hasPendingOvertime([$pendingCorrection, $rejected]));   // 修正の申請中・却下された残業は、数えない
+        $this->assertFalse(hasPendingOvertime([]));
     }
 
     // カレンダー：バッジ、申請の一覧、申請できるか、申請ウィンドウに入れる値

@@ -73,6 +73,9 @@
             button.disabled = !view.buttons[button.dataset.action];
         });
         overtimeButton.disabled = !view.buttons.overtime;
+        // 今日の残業申請が申請中のときは、案内を「申請中」に変える（D-069）
+        document.getElementById('overtime-note').hidden = view.overtimePending;
+        document.getElementById('overtime-pending').hidden = !view.overtimePending;
         // 今日の修正・新規登録が申請中のときは、打刻できないことを出す（D-063）
         document.getElementById('punch-lock').hidden = !view.locked;
     }
@@ -239,6 +242,8 @@
         if (data.ok) {
             overtimeDialog.close();
             showToast(data.message, false);
+            // 申請中になったので、読み込み直さなくても、すぐにボタンを押せなくする（D-069）
+            render({ ...currentView, overtimePending: true, buttons: { ...currentView.buttons, overtime: false } });
             return;
         }
         showOvertimeErrors(data.errors);

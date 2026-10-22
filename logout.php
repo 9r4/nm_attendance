@@ -10,6 +10,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 startAppSession();
+// すでにログアウトしている（自動ログアウトなど）なら、確かめずにログイン画面へ移す。
+// ログインしていない人を「ログアウト」させても何も起きないので、CSRF の確認は要らない（D-069）
+if (!isset($_SESSION['user'])) {
+    redirect('login.php');
+}
 requireValidCsrfToken();
 logoutUser();
 redirect('login.php');

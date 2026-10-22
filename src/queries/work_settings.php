@@ -27,7 +27,7 @@ function fetchWorkSettings(PDO $pdo): array {
     return $row;
 }
 
-// 勤務設定を変える（PR 7。全社共通の1行。変えた日の履歴は持たない。D-019、D-067）
+// 勤務設定を変える（PR 7。全社共通の1行。変えた日の履歴は持たない。D-008、D-067）
 // $settings：['standard_start' => '09:00:00', 'standard_end' => '18:00:00', 'lunch_start' => '12:00:00', 'lunch_end' => '13:00:00']（呼び出し側が確認済み）
 function updateWorkSettings(PDO $pdo, array $settings): void {
     // TODO（依頼者）：勤務設定の4つの時刻を変える（updated_at は、DB が自動で今の日時にする）

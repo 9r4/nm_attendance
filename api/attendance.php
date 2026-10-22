@@ -32,6 +32,6 @@ if (!is_string($action) || !isset(ATTENDANCE_ACTION_LABELS[$action])) {
 $overwrite = ($_POST['overwrite'] ?? '') === '1';
 
 $now = time();
-// 今日の修正・新規登録が申請中なら、打刻しない（D-063）
-$locked = isCorrectionPending($pdo, $currentUser['employee_id'], workDateOf($now));
-jsonResponse(200, performAttendanceAction($pdo, $currentUser['employee_id'], $action, $overwrite, $now, fetchWorkSettings($pdo)['standard_end'], $locked));
+// 今日の修正・新規登録が申請中なら打刻しない（D-063）。残業申請が申請中なら、簡単残業申請のボタンを押せなくして返す（D-069）
+$pending = pendingStatesOf($pdo, $currentUser['employee_id'], workDateOf($now));
+jsonResponse(200, performAttendanceAction($pdo, $currentUser['employee_id'], $action, $overwrite, $now, fetchWorkSettings($pdo)['standard_end'], $pending['correction'], $pending['overtime']));
