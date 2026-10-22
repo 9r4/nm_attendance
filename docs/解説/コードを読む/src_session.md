@@ -16,8 +16,8 @@
 | --- | --- |
 | 4〜5行 | 定数：自動ログアウトまでの時間 |
 | 7〜42行 | `startAppSession()`：セッションを始める・自動ログアウト |
-| 44〜58行 | `csrfToken()`・`requireValidCsrfToken()`：CSRF 対策 |
-| 60〜70行 | `setFlash()`・`takeFlash()`：1回だけの通知 |
+| 44〜63行 | `csrfToken()`・`isValidCsrfToken()`・`requireValidCsrfToken()`：CSRF 対策 |
+| 65〜75行 | `setFlash()`・`takeFlash()`：1回だけの通知 |
 
 ### セッションの仕組み（前提）
 
@@ -152,25 +152,38 @@ function csrfToken(): string {
 - `bin2hex()`：バイトを 16 進数の文字（`0-9a-f`）にする。32 バイト → 64 文字。HTML に埋め込める形になる。
 - 画面では、`<input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">` のように埋め込む。JavaScript から API に送る画面では、`data-csrf-token` 属性に入れて、送るときに付ける（[index.md](./index.md)）。
 
-### `requireValidCsrfToken()`：送られてきたトークンを確かめる
+### `isValidCsrfToken()`：送られてきたトークンが正しいか
 
 ```php
-function requireValidCsrfToken(): void {
+// 送られてきた CSRF トークンが正しいか
+function isValidCsrfToken(): bool {
     $token = $_POST['csrf_token'] ?? '';
-    if (!is_string($token) || empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
+    return is_string($token) && !empty($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
+```
+
+- 次の3つが全部そろえば `true`、1つでも欠ければ `false` を返す。止めはしない（どうするかは呼ぶ側が決める）：
+  - 送られてきた値が文字列である（`csrf_token[]=…` のように配列で送られていない）。
+  - セッションにトークンがある（自動ログアウトなどで消えていない）。
+  - 2つが一致する。
+- `hash_equals()`：2つの文字列を比べる。`===` との違いは、**どこで食い違っても、比べる時間が同じ**こと。`===` は、先頭から比べて違う文字が見つかった時点で止まるので、かかった時間の差から「何文字目まで合っているか」を探られるおそれがある。秘密の値を比べるときは、`hash_equals()` を使う。
+- `hash_equals()` は引数が文字列でないとエラーになる。先に `is_string()` と `empty()` で確かめているのは、そのため。`&&` は左が `false` になった時点で止まる（短絡評価）ので、右の `hash_equals()` まで進むのは、両方が文字列のときだけ。
+
+### `requireValidCsrfToken()`：正しくなければ止める
+
+```php
+// 送られてきた CSRF トークンが正しくなければ、処理を止める
+function requireValidCsrfToken(): void {
+    if (!isValidCsrfToken()) {
         abort(400, '不正なリクエストです。画面を開き直して、もう一度お試しください。');
     }
 }
 ```
 
-- 次のどれかなら、400 で止める（`abort()` は、そこで処理を終える）：
-  - 送られてきた値が文字列でない（`csrf_token[]=…` のように配列で送られた など）。
-  - セッションにトークンが無い（自動ログアウトで消えた など）。
-  - 2つが一致しない。
-- `hash_equals()`：2つの文字列を比べる。`===` との違いは、**どこで食い違っても、比べる時間が同じ**こと。`===` は、先頭から比べて違う文字が見つかった時点で止まるので、かかった時間の差から「何文字目まで合っているか」を探られるおそれがある。秘密の値を比べるときは、`hash_equals()` を使う。
-- `hash_equals()` は引数が文字列でないとエラーになる。先に `is_string()` と `empty()` で確かめているのは、そのため。`||` は左が `true` になった時点で止まる（短絡評価）ので、右の `hash_equals()` まで進むのは、両方が文字列のときだけ。
+- `isValidCsrfToken()` が `false` なら、400 で止める（`abort()` は、そこで処理を終える）。ほとんどの画面と API は、こちらを使う。
+- PR 9 で、確かめる中身を `isValidCsrfToken()` に分けた（D-069）。ログイン画面だけは、400 で止めずに「画面の有効期限が切れました。…」と同じ画面に出したいので、`isValidCsrfToken()` を直接使う（[login.md](./login.md)）。**確かめ方は1か所**のまま、「止める」か「案内する」かを呼ぶ側で選べる。
 
-> **ここが重要**：トークンを確かめるのは、**状態を変える POST すべて**（ログイン・ログアウト・打刻・申請・承認・管理の画面）。`samesite=Lax` の Cookie も CSRF を防ぐ働きをするが、ブラウザの実装に頼る守りなので、トークンを主な守りにしている。
+> **ここが重要**：トークンを確かめるのは、**状態を変える POST すべて**（ログイン・ログアウト・打刻・申請・承認・管理の画面）。ただしログアウトは、もうログイン状態が無いときは確かめずにログイン画面へ移す（[logout.md](./logout.md)）。`samesite=Lax` の Cookie も CSRF を防ぐ働きをするが、ブラウザの実装に頼る守りなので、トークンを主な守りにしている。
 
 ## 4. 1回だけの通知（フラッシュ）
 
@@ -208,6 +221,7 @@ function takeFlash(): ?string {
 | 時間の判断は自分で行う | GC にまかせず、`last_activity` で2時間を確かめる |
 | CSRF はトークンで防ぐ | `random_bytes()` で作り、`hash_equals()` で比べる |
 | 型を確かめてから使う | `is_string($token)` |
+| 「調べる」と「止める」を分ける | `isValidCsrfToken()` と `requireValidCsrfToken()` |
 | リクエストをまたぐ通知 | `setFlash()`／`takeFlash()` |
 
 ## 関連するファイル

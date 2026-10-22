@@ -5,7 +5,7 @@
 ID とパスワードを入力して、ログインする画面。**1つのファイルで、画面の表示（GET）と、ログインの処理（POST）の両方を受け持つ**。
 
 - 開いたとき（GET）：ログインのフォームを出す。
-- 「ログイン」を押したとき（POST）：入力を確かめて、正しければメイン画面へ移る。誤っていれば、同じ画面に誤りの文を出す。
+- 「ログイン」を押したとき（POST）：入力を確かめて、正しければメイン画面へ移る。誤っていれば、同じ画面に誤りの文を出す。CSRF トークンが正しくないとき（画面を長く開いたままにしたときなど）も、400 の画面にはせず、同じ画面に文を出す（D-069）。
 - ID とパスワードの照合そのものは、`src/auth.php` の `attemptLogin()` に任せる（[src_auth.md](./src_auth.md)）。このファイルは、入力の受け取りと、画面の出し分けだけをする。
 
 ## 全体の構成
@@ -15,8 +15,8 @@ ID とパスワードを入力して、ログインする画面。**1つのフ�
 | 1〜5行 | 共通の部品を読み込む |
 | 7〜10行 | セッションを始め、ログイン済みならメイン画面へ移す |
 | 12〜18行 | 画面に出す文の準備（自動ログアウトの案内） |
-| 20〜32行 | 「ログイン」が押されたとき（POST）の処理 |
-| 34〜71行 | 画面（共通の上部、案内・誤りの文、フォーム、共通の下部） |
+| 20〜34行 | 「ログイン」が押されたとき（POST）の処理 |
+| 36〜73行 | 画面（共通の上部、案内・誤りの文、フォーム、共通の下部） |
 
 ---
 
@@ -32,7 +32,7 @@ include_once(__DIR__ . '/src/auth.php');
 
 - `src/functions.php`：`h()`・`appUrl()`・`redirect()` など。
 - `src/dbconnect.php`：DB の接続（`$pdo`）。中で `src/errors.php` も読み込むので、想定外のエラーは共通のエラー処理に回る。
-- `src/auth.php`：`attemptLogin()`。中で `src/session.php` も読み込むので、`startAppSession()`・`csrfToken()`・`requireValidCsrfToken()` も使える。
+- `src/auth.php`：`attemptLogin()`。中で `src/session.php` も読み込むので、`startAppSession()`・`csrfToken()`・`isValidCsrfToken()` も使える。
 
 ## 2. ログイン済みなら、メイン画面へ
 
@@ -75,23 +75,21 @@ if (!empty($_SESSION['timed_out'])) {
 
 ```php
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    requireValidCsrfToken();
-```
-
-- `$_SERVER['REQUEST_METHOD']` は、送られてきた方法（`'GET'` か `'POST'` など）。フォームの送信は POST なので、POST のときだけ処理する。GET（画面を開いただけ）なら、この `if` を飛ばしてフォームを出す。
-- `requireValidCsrfToken()`：フォームに埋め込んだ CSRF トークンが、送られてきたものと一致するかを確かめる。一致しなければ 400 で止める。ほかのサイトに置かれたフォームから、勝手にログインさせられるのを防ぐ（[src_session.md](./src_session.md)）。
-
-```php
     $loginId = is_string($_POST['login_id'] ?? null) ? trim($_POST['login_id']) : '';
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
 ```
 
+- `$_SERVER['REQUEST_METHOD']` は、送られてきた方法（`'GET'` か `'POST'` など）。フォームの送信は POST なので、POST のときだけ処理する。GET（画面を開いただけ）なら、この `if` を飛ばしてフォームを出す。
 - `$_POST['login_id'] ?? null`：送られてこなかったら `null`。`??` を使うと、キーが無くても警告が出ない。
 - `is_string(…)`：`$_POST` の値は、ふつうは文字列だが、`login_id[]=a` のように送ると**配列**になる。配列のまま `trim()` に渡すとエラーになるので、文字列のときだけ使い、それ以外は `''` にする。
 - ID は `trim()` で前後の空白を取る（コピーして貼ったときに空白が付くことがあるため）。**パスワードは `trim()` しない**。空白もパスワードの一部かもしれないので、送られたとおりに照合する。
+- 入力を先に受け取るのは、CSRF トークンが正しくなくて画面を出し直すときにも、入力した ID を欄に残すため（下の `if` の1つ目）。
 
 ```php
-    if ($loginId === '' || $password === '') {
+    if (!isValidCsrfToken()) {
+        // 画面を長く開いたままにして、セッション（とトークン）が消えた場合など。ログインはせず、入力し直してもらう（D-069）
+        $errorMessage = '画面の有効期限が切れました。もう一度ログインしてください。';
+    } elseif ($loginId === '' || $password === '') {
         $errorMessage = 'ID とパスワードを入力してください。';
     } elseif (strlen($loginId) <= 20 && attemptLogin($pdo, $loginId, $password)) {
         redirect();
@@ -101,9 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ```
 
+- `isValidCsrfToken()`：フォームに埋め込んだ CSRF トークンが、送られてきたものと一致するかを `true`／`false` で返す（[src_session.md](./src_session.md)）。一致しなければ、**ログインはせず**、「画面の有効期限が切れました。…」を同じ画面に出す。ほかのサイトに置かれたフォームから、勝手にログインさせられるのを防ぐ。
 - どちらかが空なら、DB を調べずに「入力してください」と出す。
 - `strlen($loginId) <= 20`：ログイン ID の列は 20 文字まで（DB の `login_id` は `VARCHAR(20)`）。それより長い ID は存在しないので、DB に問い合わせずに「正しくありません」にする。`&&` は左が `false` なら右を実行しない（短絡評価）ので、長すぎるときは `attemptLogin()` が呼ばれない。
 - `attemptLogin()` が `true`（ログイン成功）なら、メイン画面へ移る。
+
+> **ここが重要**：ほかの画面は、CSRF トークンが正しくなければ `requireValidCsrfToken()` で 400 の画面にして止める。ログイン画面だけは `isValidCsrfToken()` で調べて、**同じ画面に文を出す**（PR 9。D-069）。ログイン画面を長く開いたままにすると、セッションごとトークンが消えていることがある。そのとき 400 の画面が出ると、何をすればよいか分からない。ログイン画面なら、もう一度入力してもらえば済む。出し直した画面のフォームには、`csrfToken()` が今のセッションのトークン（消えていれば新しく作ったもの）を入れるので、次の送信は通る。
 
 > **ここが重要**：失敗したときの文は、**「ID が無い」「パスワードが違う」「利用できないアカウント」のどれでも、同じ「ID またはパスワードが正しくありません」**にしている。理由ごとに文を変えると、「この ID は存在する」と外の人に教えてしまい、パスワードを当てる手がかりになる。`attemptLogin()` も、理由を区別せずに `true`／`false` だけを返す作りになっている。
 
@@ -174,12 +175,13 @@ include(__DIR__ . '/templates/header.php');
 | ブラウザの制限を信用しない | `maxlength` があっても、サーバーで長さを確かめる |
 | POST のあとはリダイレクト | 成功したら `redirect()` |
 | 一度だけの印は、使ったら消す | `timed_out` を `unset()` |
-| フォームには CSRF トークン | `hidden` の入力欄と `requireValidCsrfToken()` |
+| フォームには CSRF トークン | `hidden` の入力欄と `isValidCsrfToken()` |
+| 止めずに案内する | トークンが違っても 400 にせず、同じ画面に文を出す |
 
 ## 関連するファイル
 
 - ログインの照合：[src_auth.md](./src_auth.md)（`attemptLogin()`）
-- セッション・CSRF：[src_session.md](./src_session.md)（`startAppSession()`・`csrfToken()`・`requireValidCsrfToken()`）
+- セッション・CSRF：[src_session.md](./src_session.md)（`startAppSession()`・`csrfToken()`・`isValidCsrfToken()`）
 - 共通の関数：[src_functions.md](./src_functions.md)（`h()`・`appUrl()`・`redirect()`）
 - 共通の上部・下部：[templates.md](./templates.md)
 - ログアウト：[logout.md](./logout.md)

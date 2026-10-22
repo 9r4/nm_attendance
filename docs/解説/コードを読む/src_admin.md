@@ -116,7 +116,7 @@ function inputRaw(array $input, string $key): string {
 ## 3. `formatEmployeeId()`：社員コードを作る
 
 ```php
-// 年と通番から社員コードを作る（D-013）。1〜999 は 'yyyy'＋3桁、1000〜3573 は 'yyyy'＋英字＋2桁（1000＝A01、1099＝A99、1100＝B01）
+// 年と通番から社員コードを作る（D-013）。1〜999 は 'yyyy'＋3桁、1000〜3573 は 'yyyy'＋英字＋2桁（1000＝A01、1098＝A99、1099＝B01）
 function formatEmployeeId(int $year, int $number): string {
     if ($number < 1 || $number > EMPLOYEE_NUMBER_MAX) {
         throw new InvalidArgumentException('通番が範囲外です: ' . $number);
@@ -146,7 +146,7 @@ function formatEmployeeId(int $year, int $number): string {
 
 - 範囲の外（0 以下、3574 以上）は例外にする。呼ぶ側（`createAccount()`）が先に上限を確かめるので、ふつうは起きない。起きたらプログラムの誤りなので、黙って変な社員コードを作らずに止める。
 
-> **注意**：関数の上のコメントには「1099＝A99、1100＝B01」とあるが、実際の計算では **1098＝A99、1099＝B01** になる（表のとおり。`tests/AdminTest.php` も 1098 → A99、1099 → B01 を確かめている）。コメントのほうが1つずれている。
+> **ここが重要**：英字の組は 01〜99 の 99 人分なので、A の最後は **1098**（1000＋98）、B の最初は **1099** になる。前はコメントが「1099＝A99、1100＝B01」と1つずれていたが、計算は正しく、PR 9 でコメントを直した（D-069）。`tests/AdminTest.php` も 1098 → A99、1099 → B01 を確かめている。
 
 ## 4. 小さな確認の関数
 
@@ -199,6 +199,10 @@ function findDepartment(array $departments, int $id): ?array {
 ## 5. `validateAccount()`：アカウント作成の入力を確かめる
 
 ```php
+// アカウント作成の入力を確認する（2-1 のルール）
+// $input：name、email、department_id、joined_on、role、approval_scope、password、password_confirm
+// $departments：fetchDepartments() の戻り値。$today：今日（'2026-10-15'）
+// 戻り値：['errors' => [項目 => 文]（画面の並びの順：氏名 → 部署 → メールアドレス → 入社日 → 権限 → 承認範囲 → パスワード。D-069）, 'values' => 確認した値]
 function validateAccount(array $input, array $departments, string $today): array {
     $values = [
         'name' => inputString($input, 'name'),
@@ -213,7 +217,7 @@ function validateAccount(array $input, array $departments, string $today): array
 - パスワードは `$values` に入れない。画面に書き戻さないため（[admin_accounts.md](./admin_accounts.md) の 7章）。
 - `$departments` と `$today` は引数で受け取る。この関数の中で DB を読んだり `time()` を呼んだりしないので、テストでは好きな部署の一覧・好きな「今日」を渡して確かめられる。
 
-### 氏名とメールアドレス
+### 氏名
 
 ```php
     if ($values['name'] === '') {
@@ -221,18 +225,9 @@ function validateAccount(array $input, array $departments, string $today): array
     } elseif (mb_strlen($values['name']) > ADMIN_NAME_MAX_LENGTH) {
         $errors['name'] = '氏名は ' . ADMIN_NAME_MAX_LENGTH . ' 文字までにしてください。';
     }
-
-    if ($values['email'] === '') {
-        $errors['email'] = 'メールアドレスを入力してください。';
-    } elseif (strlen($values['email']) > ADMIN_EMAIL_MAX_LENGTH || filter_var($values['email'], FILTER_VALIDATE_EMAIL) === false) {
-        $errors['email'] = 'メールアドレスの形が正しくありません。';
-    }
 ```
 
 - 氏名は `mb_strlen()`（**文字数**）で数える。`strlen()` は**バイト数**なので、日本語の「山田」は 6 になってしまう（UTF-8 では漢字1文字が3バイト）。DB の `VARCHAR(100)` は文字数の上限なので、`mb_strlen()` で合わせる。
-- メールアドレスは `strlen()`。`FILTER_VALIDATE_EMAIL` は半角の文字のアドレスしか通さないので、通るアドレスは文字数とバイト数が同じになる。
-- `filter_var(値, FILTER_VALIDATE_EMAIL)`：PHP に用意された、メールアドレスの形の確認。正しければその値を、正しくなければ `false` を返す。自分で正規表現を書くより、取りこぼしが少ない。
-- **同じメールアドレスの社員がいるか**は、ここでは調べない。DB の一意制約に任せる（6章）。
 
 ### 部署
 
@@ -250,6 +245,20 @@ function validateAccount(array $input, array $departments, string $today): array
 - `/\A[1-9]\d{0,9}\z/`：「1〜9 で始まり、そのあと数字が 0〜9 個」＝ 1 以上の整数（先頭に 0 が付かない、最大 10 桁）。`'abc'` や `'-1'` や `'1.5'` は、ここではじく。
 - 形が正しければ、`findDepartment()` で一覧から探す。**無い部署や、無効にした部署は使えない**。
 - 画面の選択欄には有効な部署しか出ないが、「画面を開いたあとで、別の画面で部署が無効にされた」ことや、開発ツールで値を書き換えて送られることがある。だからサーバーで確かめ直す。
+
+### メールアドレス
+
+```php
+    if ($values['email'] === '') {
+        $errors['email'] = 'メールアドレスを入力してください。';
+    } elseif (strlen($values['email']) > ADMIN_EMAIL_MAX_LENGTH || filter_var($values['email'], FILTER_VALIDATE_EMAIL) === false) {
+        $errors['email'] = 'メールアドレスの形が正しくありません。';
+    }
+```
+
+- メールアドレスは `strlen()`（バイト数）で数える。`FILTER_VALIDATE_EMAIL` は半角の文字のアドレスしか通さないので、通るアドレスは文字数とバイト数が同じになる。
+- `filter_var(値, FILTER_VALIDATE_EMAIL)`：PHP に用意された、メールアドレスの形の確認。正しければその値を、正しくなければ `false` を返す。自分で正規表現を書くより、取りこぼしが少ない。
+- **同じメールアドレスの社員がいるか**は、ここでは調べない。DB の一意制約に任せる（6章）。
 
 ### 入社日
 
@@ -288,7 +297,9 @@ function validateAccount(array $input, array $departments, string $today): array
 - `array_key_exists(値, 配列)`：その値が配列の**キー**にあるか。1章の定数を「受け付けてよい値の一覧」として使っている。
 - 社員を選んだときは、送られてきた承認範囲を使わず、`'department'` に固定する。画面では承認範囲の欄が隠れているが、隠れた欄の値も送られてくるので、ここで決め直す。
 - `$errors += …`：配列の `+` は「左に無いキーだけを、右から足す」（配列の和）。パスワードの誤り（`password` か `password_confirm`）を、最後に付け足している。
-- 誤りは、確かめた順（氏名 → メールアドレス → 部署 → 入社日 → 権限 → パスワード）に配列へ入る。画面は `reset($errors)` で最初の1つを出す。
+- 誤りは、確かめた順（氏名 → 部署 → メールアドレス → 入社日 → 権限 → 承認範囲 → パスワード）に配列へ入る。画面は `reset($errors)` で最初の1つを出す。
+
+> **ここが重要**：確かめる順は、**画面の入力欄の並び（上から氏名 → 部署 → メールアドレス → …）と同じ**にしている。画面には最初の誤り1つだけを出すので、順が画面と違うと、上の欄が誤っているのに下の欄の誤りが出てしまう。前はメールアドレスを部署より先に確かめていたので、PR 9 で並びを画面に合わせた（D-069。`tests/AdminTest.php` で順を確かめている）。
 
 ## 6. `createAccount()`：アカウントを作る（採番とトランザクション）
 
