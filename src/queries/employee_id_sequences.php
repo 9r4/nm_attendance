@@ -15,5 +15,18 @@ function nextEmployeeNumber(PDO $pdo, int $year): int {
     // 3. 2つ目の SQL：SELECT last_number FROM employee_id_sequences WHERE year = :year
     // 4. prepare → :year に $year を bindValue（PDO::PARAM_INT）→ execute → fetchColumn() で値を1つ取り出す
     // 5. 取り出した値を、数値にして返す：return (int) $value;
-    throw new RuntimeException('nextEmployeeNumber は未実装です');
+    // throw new RuntimeException('nextEmployeeNumber は未実装です');
+    $sql = 'INSERT INTO employee_id_sequences (year, last_number) VALUES (:year, 1) AS new
+        ON DUPLICATE KEY UPDATE last_number = employee_id_sequences.last_number + 1';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':year', $year, PDO::PARAM_INT);
+    $stmt->execute();
+
+    $sql2 = 'SELECT last_number FROM employee_id_sequences WHERE year = :year';
+    $stmt2 = $pdo->prepare($sql2);
+    $stmt2->bindValue(':year', $year, PDO::PARAM_INT);
+    $stmt2->execute();
+    $value = $stmt2->fetchColumn();
+
+    return (int) $value;
 }

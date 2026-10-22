@@ -15,7 +15,7 @@ function fetchWorkSettings(PDO $pdo): array {
 
     // throw new RuntimeException('fetchWorkSettings は未実装です');
 
-    $sql = 'SELECT standard_start, standard_end, lunch_start, lunch_end FROM work_settings WHERE id = :id';
+    $sql = 'SELECT standard_start, standard_end, lunch_start, lunch_end, updated_at FROM work_settings WHERE id = :id';
     $stmt = $pdo->prepare($sql);
     $id = 1;
     $stmt->bindParam(':id', $id, PDO::PARAM_INT);
@@ -36,5 +36,13 @@ function updateWorkSettings(PDO $pdo, array $settings): void {
     //    - 4つの時刻は $settings['standard_start'] などを渡す（PDO::PARAM_STR）
     //    - :id には 1 を渡す（PDO::PARAM_INT）
     // 3. execute
-    throw new RuntimeException('updateWorkSettings は未実装です');
+    // throw new RuntimeException('updateWorkSettings は未実装です');
+    $sql = 'UPDATE work_settings SET standard_start = :standard_start, standard_end = :standard_end, lunch_start = :lunch_start, lunch_end = :lunch_end WHERE id = :id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':standard_start', $settings['standard_start'], PDO::PARAM_STR);
+    $stmt->bindValue(':standard_end', $settings['standard_end'], PDO::PARAM_STR);
+    $stmt->bindValue(':lunch_start', $settings['lunch_start'], PDO::PARAM_STR);
+    $stmt->bindValue(':lunch_end', $settings['lunch_end'], PDO::PARAM_STR);
+    $stmt->bindValue(':id', 1, PDO::PARAM_INT);
+    $stmt->execute();
 }

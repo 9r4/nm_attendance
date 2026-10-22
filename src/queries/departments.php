@@ -17,7 +17,15 @@ function fetchDepartments(PDO $pdo): array {
     //    - 在籍の条件（e.employment_status = 'active'）は、WHERE ではなく ON に書く（WHERE に書くと、社員がいない部署の行が消える）
     // 2. prepare → execute（プレースホルダが無いので、bindValue は不要）
     // 3. fetchAll() の結果を返す
-    throw new RuntimeException('fetchDepartments は未実装です');
+    // throw new RuntimeException('fetchDepartments は未実装です');
+    $sql = 'SELECT d.id, d.name, d.is_active, COUNT(e.employee_id) AS active_count
+        FROM departments d
+        LEFT JOIN employees e ON e.department_id = d.id AND e.employment_status = \'active\'
+        GROUP BY d.id, d.name, d.is_active
+        ORDER BY d.id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 // 部署を追加する（利用可否は DB の既定値の「有効（1）」になる）
@@ -26,7 +34,11 @@ function insertDepartment(PDO $pdo, string $name): void {
     // TODO（依頼者）：部署を追加する
     // 1. SQL を書く：INSERT INTO departments (name) VALUES (:name)
     // 2. prepare → :name に $name を bindValue（PDO::PARAM_STR）→ execute
-    throw new RuntimeException('insertDepartment は未実装です');
+    // throw new RuntimeException('insertDepartment は未実装です');
+    $sql = 'INSERT INTO departments (name) VALUES (:name)';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':name', $name, PDO::PARAM_STR);
+    $stmt->execute();
 }
 
 // 部署の名前を変える（同じ名前の部署があると、一意制約のエラーになる。insertDepartment() と同じく、ここでは確かめない）
@@ -34,7 +46,12 @@ function updateDepartmentName(PDO $pdo, int $id, string $name): void {
     // TODO（依頼者）：部署の名前を変える
     // 1. SQL を書く：UPDATE departments SET name = :name WHERE id = :id
     // 2. prepare → :name（PDO::PARAM_STR）と :id（PDO::PARAM_INT）を bindValue → execute
-    throw new RuntimeException('updateDepartmentName は未実装です');
+    // throw new RuntimeException('updateDepartmentName は未実装です');
+    $sql = 'UPDATE departments SET name = :name WHERE id = :id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':name', $name, PDO::PARAM_STR);
+    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+    $stmt->execute();
 }
 
 // 部署を有効・無効にする。$isActive：true＝有効、false＝無効
@@ -45,5 +62,10 @@ function updateDepartmentActive(PDO $pdo, int $id, bool $isActive): void {
     //    - :is_active には $isActive ? 1 : 0 を渡す（DB の列は数値の 1／0 なので PDO::PARAM_INT）
     //    - :id には $id を渡す（PDO::PARAM_INT）
     // 3. execute
-    throw new RuntimeException('updateDepartmentActive は未実装です');
+    // throw new RuntimeException('updateDepartmentActive は未実装です');
+    $sql = 'UPDATE departments SET is_active = :is_active WHERE id = :id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':is_active', $isActive ? 1 : 0, PDO::PARAM_INT);
+    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+    $stmt->execute();
 }

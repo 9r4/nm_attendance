@@ -41,7 +41,15 @@ function insertLoginAccount(PDO $pdo, string $employeeId, string $passwordHash, 
     // TODO（依頼者）：ログイン情報を追加する
     // 1. SQL を書く：INSERT INTO login_accounts (login_id, employee_id, password_hash, role, approval_scope) VALUES (:login_id, :employee_id, :password_hash, :role, :approval_scope)
     // 2. prepare → bindValue（5つとも PDO::PARAM_STR。:login_id と :employee_id には、どちらも $employeeId を渡す）→ execute
-    throw new RuntimeException('insertLoginAccount は未実装です');
+    // throw new RuntimeException('insertLoginAccount は未実装です');
+    $sql = 'INSERT INTO login_accounts (login_id, employee_id, password_hash, role, approval_scope) VALUES (:login_id, :employee_id, :password_hash, :role, :approval_scope)';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':login_id', $employeeId, PDO::PARAM_STR);
+    $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
+    $stmt->bindValue(':password_hash', $passwordHash, PDO::PARAM_STR);
+    $stmt->bindValue(':role', $role, PDO::PARAM_STR);
+    $stmt->bindValue(':approval_scope', $approvalScope, PDO::PARAM_STR);
+    $stmt->execute();
 }
 
 // ログインの利用可否を変える。$isActive：true＝ログインできる、false＝ログインできない
@@ -53,7 +61,12 @@ function updateLoginActive(PDO $pdo, string $loginId, bool $isActive): void {
     //    - :is_active には $isActive ? 1 : 0 を渡す（DB の列は数値の 1／0 なので PDO::PARAM_INT）
     //    - :login_id には $loginId を渡す（PDO::PARAM_STR）
     // 3. execute
-    throw new RuntimeException('updateLoginActive は未実装です');
+    // throw new RuntimeException('updateLoginActive は未実装です');
+    $sql = 'UPDATE login_accounts SET is_active = :is_active WHERE login_id = :login_id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':is_active', $isActive ? 1 : 0, PDO::PARAM_INT);
+    $stmt->bindValue(':login_id', $loginId, PDO::PARAM_STR);
+    $stmt->execute();
 }
 
 // パスワードを変える（パスワード再設定）。$passwordHash：password_hash() で作ったハッシュ（平文は渡さない）
@@ -61,5 +74,10 @@ function updatePasswordHash(PDO $pdo, string $loginId, string $passwordHash): vo
     // TODO（依頼者）：パスワードのハッシュを変える
     // 1. SQL を書く：UPDATE login_accounts SET password_hash = :password_hash WHERE login_id = :login_id
     // 2. prepare → bindValue（2つとも PDO::PARAM_STR）→ execute
-    throw new RuntimeException('updatePasswordHash は未実装です');
+    // throw new RuntimeException('updatePasswordHash は未実装です');
+    $sql = 'UPDATE login_accounts SET password_hash = :password_hash WHERE login_id = :login_id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':password_hash', $passwordHash, PDO::PARAM_STR);
+    $stmt->bindValue(':login_id', $loginId, PDO::PARAM_STR);
+    $stmt->execute();
 }
