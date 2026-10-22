@@ -90,7 +90,7 @@ function fetchDepartments(PDO $pdo): array {
 > **ここが重要（`COUNT(列)` と `COUNT(*)` の違い）**：`COUNT(*)` は行の数をそのまま数えるので、総務部の「社員の列が `NULL` の1行」も数えて `1` になってしまう。`COUNT(e.employee_id)` は `NULL` を数えないので、正しく `0` になる。
 
 - `GROUP BY` に `d.id, d.name, d.is_active` の3つを書いている。MySQL の既定（`ONLY_FULL_GROUP_BY`）では、`SELECT` に書いた列は「`GROUP BY` に書く」か「`COUNT` などでまとめる」必要がある。`d.id` は主キーなので、MySQL は `d.id` だけでも `d.name` などが1つに決まると分かってくれるが、3つとも書いておけば、ほかのデータベースでも通る、はっきりした書き方になる。
-- `active_count` は、部署の画面で「在籍 2 人」のように出す。無効の部署も含めて全部を返すので、アカウント作成の選択欄では、呼ぶ側の `activeDepartments()` が有効な部署だけを残す。
+- `active_count` は、部署の画面の「在籍人数」の列に「2 人」のように出す。無効の部署も含めて全部を返すので、アカウント作成の選択欄では、呼ぶ側の `activeDepartments()` が有効な部署だけを残す。
 - プレースホルダが無いので `bindValue` も無い。
 - この関数は、一覧の表示だけでなく、`createAccount()`（選んだ部署が有効か）や `renameDepartment()`・`setDepartmentActive()`（部署があるか）の確かめにも使われる。どれもトランザクションの外で呼ぶ。
 
