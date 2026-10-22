@@ -131,6 +131,6 @@ $pdo->exec("SET time_zone = '+09:00'");
 
 - 共通のエラー処理：[src_errors.md](./src_errors.md)
 - タイムゾーン（PHP 側）：[src_functions.md](./src_functions.md)
-- `$pdo` を使う SQL：`src/queries/` の各ファイル（依頼者が書く）
+- `$pdo` を使う SQL：`src/queries/` の各ファイル（依頼者が書く。[src_queries_attendances.md](./src_queries_attendances.md) など）
 - 書き方の見本：[PHPコーディング方針.md](../../PHPコーディング方針.md)（4章）
 - 接続の情報の扱い：[技術方針.md](../../技術方針.md)（2-2）、[決定事項.md](../../決定事項.md)（D-045）

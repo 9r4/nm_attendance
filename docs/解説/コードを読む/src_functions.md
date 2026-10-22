@@ -177,4 +177,4 @@ function abort(int $status, string $message): never {
 
 - 使う側：すべての画面と API（[index.md](./index.md)、[login.md](./login.md)、[logout.md](./logout.md)、[templates.md](./templates.md) など）
 - 日時の形を整えるもう1つの関数：[src_attendance.md](./src_attendance.md)（`formatClock()`）
-- テスト：`tests/AssetUrlTest.php`（`assetUrl()` に更新日時が付くこと、ファイルを変えると URL が変わること）
+- テスト：[tests.md](./tests.md)。`tests/AssetUrlTest.php`（`assetUrl()` に更新日時が付くこと、ファイルを変えると URL が変わること）

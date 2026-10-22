@@ -242,6 +242,6 @@ function requireRole(array $user, array $roles): void {
 ## 関連するファイル
 
 - セッション：[src_session.md](./src_session.md)
-- 呼ぶ側：[login.md](./login.md)（`attemptLogin()`）、[logout.md](./logout.md)（`logoutUser()`）、[index.md](./index.md)（`requireLogin()`・`ADMIN_MENU_ITEMS`）、[templates.md](./templates.md)（権限ごとのメニュー）、`api/` の各ファイル（`currentUser()`）、`records/index.php`・`approvals/index.php`・`admin/` の各画面（`requireRole()`）
-- DB の読み書き：`src/queries/login_accounts.php`（`fetchLoginAccount()`・`updateLastLoginAt()`）、`src/queries/employees.php`（`fetchEmployeeProfile()`）
+- 呼ぶ側：[login.md](./login.md)（`attemptLogin()`）、[logout.md](./logout.md)（`logoutUser()`）、[index.md](./index.md)（`requireLogin()`・`ADMIN_MENU_ITEMS`）、[templates.md](./templates.md)（権限ごとのメニュー）、`api/` の各ファイル（`currentUser()`。[api_attendance.md](./api_attendance.md) など）、[records_index.md](./records_index.md)・[approvals_index.md](./approvals_index.md)・`admin/` の各画面（`requireRole()`）
+- DB の読み書き：[src_queries_employees_login_accounts.md](./src_queries_employees_login_accounts.md)（`fetchLoginAccount()`・`updateLastLoginAt()`・`fetchEmployeeProfile()`）
 - 止めるときの関数：[src_functions.md](./src_functions.md)（`redirect()`・`abort()`）

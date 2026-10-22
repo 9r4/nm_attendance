@@ -288,10 +288,10 @@ $currentPath = preg_replace('#index\.php$#', '', parse_url($_SERVER['REQUEST_URI
 
 ## 関連するファイル
 
-- 読み込む側：[index.md](./index.md)、[login.md](./login.md)、`records/index.php`・`approvals/index.php`・`admin/` の各画面
+- 読み込む側：[index.md](./index.md)、[login.md](./login.md)、[records_index.md](./records_index.md)、[approvals_index.md](./approvals_index.md)、[admin_accounts.md](./admin_accounts.md)、[admin_departments_settings.md](./admin_departments_settings.md)
 - `$currentUser` を作る関数・権限の定数：[src_auth.md](./src_auth.md)（`requireLogin()`・`ROLE_*`・`ADMIN_MENU_ITEMS`）
 - `$headerStatus` を作る関数：[src_attendance.md](./src_attendance.md)（`attendanceView()`）
 - CSRF トークン：[src_session.md](./src_session.md)（`csrfToken()`）
 - URL の関数：[src_functions.md](./src_functions.md)（`h()`・`appUrl()`・`assetUrl()`）
-- 状態バッジを書き換える JS：`js/main.js`（`render()`）
+- 状態バッジを書き換える JS：[js_main.md](./js_main.md)（`render()`）
 - メニューの動きの確認：`docs/検証スクリプト/pr4.js`（開く・×・Esc・外側で閉じる）

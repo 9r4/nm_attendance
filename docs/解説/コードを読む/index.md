@@ -305,7 +305,7 @@ include(__DIR__ . '/templates/header.php');
 
 ## 関連するファイル
 
-- 読み込む部品：[src_functions.md](./src_functions.md)、[src_dbconnect.md](./src_dbconnect.md)、[src_auth.md](./src_auth.md)、[src_session.md](./src_session.md)、[src_attendance.md](./src_attendance.md)（`attendanceView()`）、`src/requests.php`（`isCorrectionPending()`）、`src/queries/work_settings.php`（`fetchWorkSettings()`）
+- 読み込む部品：[src_functions.md](./src_functions.md)、[src_dbconnect.md](./src_dbconnect.md)、[src_auth.md](./src_auth.md)、[src_session.md](./src_session.md)、[src_attendance.md](./src_attendance.md)（`attendanceView()`）、[src_requests.md](./src_requests.md)（`isCorrectionPending()`）、[src_queries_departments_sequences_work_settings.md](./src_queries_departments_sequences_work_settings.md)（`fetchWorkSettings()`）
 - 共通の上部・下部：[templates.md](./templates.md)
-- 画面の動き：`js/main.js`（時計、`render()`、ボタンの送信、上書きの確認、簡単残業申請）
-- 送り先の API：`api/attendance.php`（出退勤）、`api/requests.php`（簡単残業申請）
+- 画面の動き：[js_main.md](./js_main.md)（時計、`render()`、ボタンの送信、上書きの確認、簡単残業申請）
+- 送り先の API：[api_attendance.md](./api_attendance.md)（出退勤）、[api_requests.md](./api_requests.md)（簡単残業申請）

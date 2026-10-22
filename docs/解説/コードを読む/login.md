@@ -183,4 +183,4 @@ include(__DIR__ . '/templates/header.php');
 - 共通の関数：[src_functions.md](./src_functions.md)（`h()`・`appUrl()`・`redirect()`）
 - 共通の上部・下部：[templates.md](./templates.md)
 - ログアウト：[logout.md](./logout.md)
-- DB の読み書き：`src/queries/login_accounts.php`（`fetchLoginAccount()`・`updateLastLoginAt()`）
+- DB の読み書き：[src_queries_employees_login_accounts.md](./src_queries_employees_login_accounts.md)（`fetchLoginAccount()`・`updateLastLoginAt()`）

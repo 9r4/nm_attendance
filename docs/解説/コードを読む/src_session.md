@@ -214,5 +214,5 @@ function takeFlash(): ?string {
 
 - このファイルを使う側：[src_auth.md](./src_auth.md)（`currentUser()` が `startAppSession()` を呼ぶ）、[login.md](./login.md)、[logout.md](./logout.md)
 - トークンを埋め込む画面：[index.md](./index.md)（`data-csrf-token`）、[templates.md](./templates.md)（ログアウトボタンのフォーム）
-- フラッシュを使う側：`api/requests.php`・`api/approvals.php`（`setFlash()`）、`records/index.php`・`approvals/index.php`・`admin/` の各画面（`takeFlash()`。管理の画面は `setFlash()` も使う）
+- フラッシュを使う側：[api_requests.md](./api_requests.md)・[api_approvals.md](./api_approvals.md)（`setFlash()`）、[records_index.md](./records_index.md)・[approvals_index.md](./approvals_index.md)・`admin/` の各画面（`takeFlash()`。管理の画面は `setFlash()` も使う）
 - 400 を返す関数：[src_functions.md](./src_functions.md)（`abort()`）
