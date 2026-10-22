@@ -17,7 +17,24 @@ PHPUnit（`composer test`）は `tests/` にある（PR 8 の時点で 103 件�
 
 ## 1. 検証環境の準備（コンテナが作り直されたら、毎回）
 
-Claude の環境は使い捨てで、MySQL や PHP のサーバーが止まっていることがある。
+Claude の環境は使い捨てで、サーバーが止まっていることがある。
+
+### 1-1. 依頼者の WSL と同じ版で確認する（2026-10-22 から。基本はこちら）
+
+依頼者の WSL（Ubuntu 26.04）と**同じ版**の Apache 2.4.66・PHP 8.5.4（mod_php）・MySQL 8.4.11 を、Docker の中に用意して確認する。Apache の設定も、WSL と同じ [../apache/attendance.conf](../apache/attendance.conf) を使う。ファイルは [wsl環境/](./wsl環境/)（`Dockerfile`・`start.sh`・`build.sh`）。
+
+```bash
+composer install                              # PHPUnit（vendor/ が無ければ）
+bash docs/検証スクリプト/wsl環境/build.sh       # 作って起動し、版を表示する（初回は数分）
+```
+
+- リポジトリを `/var/www/html/nm_attendance` に置き（`http://127.0.0.1:8080/nm_attendance/` で開く）、DB・`attendance_app` ユーザー（パスワードは `src/dbconnect.php` と同じ）・テストデータ・システム管理者 `sysadmin`（パスワード `Admin1234`、検証環境だけ）を初回に作る。
+- MySQL は `127.0.0.1:3307` で外に出し、`~/.my.cnf` を書くので、検証スクリプトの `mysql -uroot …` はこの MySQL につながる。
+- PHP の非推奨・警告は、すべて Apache のログに出す（画面には出さない）。確認のあと、次で 0 件であることを確かめる：
+  `docker exec attendance-wsl grep -iE 'PHP (Warning|Notice|Deprecated|Fatal)' /var/log/apache2/error.log`
+- Docker の外の通信は、Docker Hub と Ubuntu の公式のサーバーが使える（PHP の PPA・MySQL の公式のサーバーは、Claude の環境の通信の制限で使えない）。
+
+### 1-2. Docker が使えないとき（以前のやり方：PHP 8.3 の組み込みサーバー＋MySQL 8.0）
 
 ```bash
 # MySQL（入っていなければ apt で入れる。DB の中身はコンテナが残っていれば残る）
@@ -34,6 +51,10 @@ composer install
 cd /home/user && PHP_CLI_SERVER_WORKERS=4 php -d display_errors=0 -d log_errors=1 -d error_reporting=-1 -S 127.0.0.1:8080 -t /home/user > サーバーのログ 2>&1
 ```
 
+- 1-1 で作った `~/.my.cnf` があると、`mysql` コマンドは 1-1 の MySQL につながる。1-2 を使うときは `~/.my.cnf` を消す。
+
+### 1-3. 共通の注意
+
 - 検証環境の `mysql` コマンドは文字コードが latin1 のため、日本語を含む SQL を流すときは `--default-character-set=utf8mb4` を付ける（`test_data.sql` には `SET NAMES utf8mb4;` を入れてある）。
 - 依頼者が書く関数が枠のまま（未実装）のときは、検証用の仮の中身を入れて動かし、コミットする前に枠に戻す。
 
@@ -44,13 +65,21 @@ node docs/検証スクリプト/pr6.js
 ```
 
 - 各スクリプトは、最初に勤怠・申請の表を消してから、確認用のデータを入れる（テスト用の DB で実行すること）。
-- 最後に「結果: ○ 件 OK / ○ 件 NG」と出る。PHP の警告は、サーバーのログで `Warning|Notice|Deprecated|Fatal|[500]` を探す。
+- 最後に「結果: ○ 件 OK / ○ 件 NG」と出る。PHP の警告は、1-1 では Apache のログ（1-1 のコマンド）、1-2 ではサーバーのログで `Warning|Notice|Deprecated|Fatal|[500]` を探す。
 - `pr5.js` は、月の 6 日以降に実行する（月の 1〜4 日を使うため）。
 - ブラウザは `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`（検証環境に入っているもの）。
 
 ## 3. DB を使うテスト（PHPUnit。承認・システム管理者）
 
 テスト用の DB（`attendance_test`）の表を、テストのたびに作り直す。本番・開発の DB を指定しないこと。
+
+1-1 の環境（PHP 8.5）で実行する（`attendance_test` は 1-1 で作ってある。非推奨もすべて出すため `error_reporting=-1`）：
+
+```bash
+docker exec -w /var/www/html/nm_attendance -e ATTENDANCE_TEST_DSN='mysql:host=localhost;dbname=attendance_test;charset=utf8mb4' -e ATTENDANCE_TEST_USER=root attendance-wsl php -d error_reporting=-1 vendor/bin/phpunit tests
+```
+
+1-2 の環境のとき：
 
 ```bash
 mysql -uroot -e "CREATE DATABASE IF NOT EXISTS attendance_test CHARACTER SET utf8mb4"
