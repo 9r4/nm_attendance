@@ -1,6 +1,6 @@
 # 4. DB と SQL
 
-主なファイル：`src/queries/*.php`（依頼者が書いた部分）、`docs/db/schema.sql`
+主なファイル：`src/queries/*.php`（依頼者が書いた部分。`deletePendingRequest()` だけは D-063 で Claude が書いた）、`docs/db/schema.sql`
 
 ## 4-1. 表（テーブル）の一覧
 
@@ -58,7 +58,7 @@ $sql = "SELECT * FROM login_accounts WHERE login_id = '" . $loginId . "'";
 | `null`（空欄の時刻など） | `PDO::PARAM_STR` のままでよい | DB には NULL が入る |
 
 - **社員コードは数字だけに見えても文字列**（`2026A01` のように英字が入ることがある。D-013）。必ず `PARAM_STR`。
-- `bindParam` ではなく `bindValue` に揃えている（D-060）。`bindParam` は変数を「参照」で結び付けるので、`execute()` の前に変数が変わると、変わった値が使われてしまう。
+- 原則として `bindParam` ではなく `bindValue` に揃えている（D-060）。ただし PR 1 で書いた `fetchWorkSettings()` だけは `bindParam` のまま（D-060 で、そのままでよいと決めた）。`bindParam` は変数を「参照」で結び付けるので、`execute()` の前に変数が変わると、変わった値が使われてしまう。
 
 ### 結果の取り出し方
 
