@@ -31,6 +31,8 @@
 | `[data-action]` のボタン | 出勤・退勤・休憩開始・休憩終了 |
 | `#confirm-dialog` | 上書きの確認のウィンドウ |
 | `#overtime-open`・`#overtime-dialog` | 簡単残業申請のボタンとウィンドウ |
+| `#overtime-note`・`#overtime-pending` | 簡単残業申請のボタンの下の案内（申請できる条件／申請中です。どちらか1つを出す） |
+| `#punch-lock` | 今日の修正が申請中で、打刻できないことの案内 |
 | `#toast` | 通知（数秒で消える） |
 
 ---
@@ -160,16 +162,20 @@
             button.disabled = !view.buttons[button.dataset.action];
         });
         overtimeButton.disabled = !view.buttons.overtime;
+        // 今日の残業申請が申請中のときは、案内を「申請中」に変える（D-069）
+        document.getElementById('overtime-note').hidden = view.overtimePending;
+        document.getElementById('overtime-pending').hidden = !view.overtimePending;
         // 今日の修正・新規登録が申請中のときは、打刻できないことを出す（D-063）
         document.getElementById('punch-lock').hidden = !view.locked;
     }
 ```
 
-- 引数の `view` は、PHP の `attendanceView()` が作った形（`status`・`statusLabel`・`checkIn`・`checkOut`・`break`・`buttons`・`locked`）。この形は PHP と JavaScript の「約束の形」になっている（[src_attendance.md](./src_attendance.md) 6章）。
+- 引数の `view` は、PHP の `attendanceView()` が作った形（`status`・`statusLabel`・`checkIn`・`checkOut`・`break`・`buttons`・`locked`・`overtimePending`）。この形は PHP と JavaScript の「約束の形」になっている（[src_attendance.md](./src_attendance.md) 6章）。
 - `textContent` に入れると、文字はそのまま文字として表示される（HTML として解釈されない）。`innerHTML` を使わないので、もし値に `<script>` が入っていても動かない。
 - 状態のバッジは、CSS のクラス名も書き換えて色を変える。`'not_started'` → `'status-badge--not-started'`。文字列の `replace()` は**最初の1つだけ**を置き換えるが、状態の名前には `_` が1つまでしかないので、これで足りる。
 - 各ボタンの `data-action`（`check_in` など）をキーにして、`view.buttons` の `true`／`false` を読み、`disabled` を決める。
 - `hidden` 属性を `true` にすると、その要素は表示されない。
+- `overtimePending`（今日の残業申請が申請中か）で、ボタンの下の2つの案内のどちらを出すかを決める。片方に `view.overtimePending`、もう片方に `!view.overtimePending` を入れるので、必ずどちらか1つだけが出る（D-069）。
 
 > **ここが重要**：最初の表示は PHP（`index.php`）が HTML で作り、ボタンを押したあとの表示は、この `render()` が作る。**どちらも同じ `attendanceView()` の値を使う**ので、最初と押したあとで表示が食い違わない。また `render()` は、ボタンの `disabled` を「サーバーの答えのとおり」にするだけで、自分では判断しない。
 
@@ -472,6 +478,8 @@ sequenceDiagram
         if (data.ok) {
             overtimeDialog.close();
             showToast(data.message, false);
+            // 申請中になったので、読み込み直さなくても、すぐにボタンを押せなくする（D-069）
+            render({ ...currentView, overtimePending: true, buttons: { ...currentView.buttons, overtime: false } });
             return;
         }
         showOvertimeErrors(data.errors);
@@ -481,7 +489,10 @@ sequenceDiagram
 
 - 受け付けられた（`ok: true`）なら、ウィンドウを閉じて、サーバーの文（「残業申請を受け付けました（〜19:00・申請中）」）を通知に出す。画面は読み込み直さない（[api_requests.md](./api_requests.md) 4章）。
 - 入力の誤り（`ok: false`）なら、`errors` を、それぞれの場所に出す。例えば `{overtime_end: '退勤時刻（19:30）を超える時刻は指定できません。'}` なら、入力欄の下に出る。
-- 受け付けたあとも、簡単残業申請のボタンは押せるまま。もう一度申請すると、サーバーが「本日分の残業申請は、すでに申請中です。」（BR-002）を返し、ウィンドウの中に出る。
+- 受け付けたあとは、`render()` に「申請中」の表示を渡して、簡単残業申請のボタンを押せなくし、案内を「本日分の残業申請は申請中です。」に変える（PR 9。D-069）。前は、受け付けたあともボタンが押せるままだった。
+  - `{ ...currentView, … }`：**スプレッド構文**。`currentView` の中身を全部写した新しいオブジェクトを作り、後ろに書いた `overtimePending: true` で上書きする。`buttons` も同じやり方で、`overtime` だけを `false` にする。元の `currentView` は書き換えない。
+  - サーバーに聞き直さずに表示を変えているが、内容はサーバーが次に返す表示と同じ（申請中なので、`attendanceView()` も `overtime` を `false`、`overtimePending` を `true` にする）。このあと打刻のボタンを押すと、API の答え（`pendingStatesOf()` で調べ直した値）で表示が作り直される。
+- それでも別のタブなどからもう一度申請すると、サーバーが「本日分の残業申請は、すでに申請中です。」（BR-002）を返し、ウィンドウの中に出る。
 
 > **ここが重要**：入力の誤りを確かめるのは、すべてサーバー（`validateOvertime()`。[src_requests.md](./src_requests.md) 5章）。JavaScript は、返ってきた `errors` のキーで「どこに出すか」を決めるだけ。ルールを JavaScript にも書くと、サーバーとの二重管理になり、片方だけ直す誤りが起きる。
 

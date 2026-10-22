@@ -17,8 +17,8 @@
 | 27〜28行 | 画面の名前を決めて、共通の上部（ヘッダー）を出す |
 | 30〜34行 | 時計 |
 | 36〜42行 | システム管理者：管理の画面へのボタン |
-| 43〜115行 | 社員・管理者：本日の記録、打刻のボタン、簡単残業申請、確認のウィンドウ |
-| 117〜119行 | JavaScript の読み込みと、共通の下部 |
+| 43〜116行 | 社員・管理者：本日の記録、打刻のボタン、簡単残業申請、確認のウィンドウ |
+| 118〜120行 | JavaScript の読み込みと、共通の下部 |
 
 前半（`?>` まで）で値をすべて用意し、後半の HTML では**用意した値を出すだけ**にしている。HTML の中で DB を読んだり、判断をしたりしない。
 
@@ -58,7 +58,7 @@ include_once(__DIR__ . '/src/requests.php');
 | `src/dbconnect.php` | `$pdo`（DB の接続） |
 | `src/auth.php` | `requireLogin()`・`ROLE_SYSTEM_ADMIN`・`ADMIN_MENU_ITEMS`（`src/session.php` も一緒に読み込まれ、`csrfToken()` が使える） |
 | `src/queries/work_settings.php` | `fetchWorkSettings()`（標準終了時刻） |
-| `src/requests.php` | `isCorrectionPending()`。このファイルが `src/attendance.php` も読み込むので、`attendanceView()`・`workDateOf()`・`ATTENDANCE_ACTION_LABELS` なども使える |
+| `src/requests.php` | `pendingStatesOf()`。このファイルが `src/attendance.php` も読み込むので、`attendanceView()`・`workDateOf()`・`ATTENDANCE_ACTION_LABELS` なども使える |
 
 ## 2. ログインの確認と、画面に出す値の準備
 
@@ -85,17 +85,19 @@ $view = null;
 if ($isEmployee) {
     $standardEnd = fetchWorkSettings($pdo)['standard_end'];
     $today = workDateOf($now);
-    // 今日の修正・新規登録が申請中なら、打刻を止める（D-063）
-    $locked = isCorrectionPending($pdo, $currentUser['employee_id'], $today);
-    $view = attendanceView(fetchAttendance($pdo, $currentUser['employee_id'], $today), $standardEnd, $locked);
+    // 今日の修正・新規登録が申請中なら打刻を止め（D-063）、残業申請が申請中なら簡単残業申請を止める（D-069）
+    $pending = pendingStatesOf($pdo, $currentUser['employee_id'], $today);
+    $view = attendanceView(fetchAttendance($pdo, $currentUser['employee_id'], $today), $standardEnd, $pending['correction'], $pending['overtime']);
     $headerStatus = $view;
 }
 ```
 
 - 社員・管理者のときだけ、DB を読んで表示の値を作る。システム管理者のときは `$view` が `null` のまま。
 - `fetchWorkSettings($pdo)['standard_end']`：関数の戻り値（配列）に、そのまま `['…']` を付けて1つの値を取り出せる。`'18:00:00'` のような標準終了時刻が入る。
-- `$locked`：今日の分の修正・新規登録の申請が「申請中」なら `true`。申請が承認されると、勤怠の行が申請の値で上書きされ、その間に押した打刻が消えてしまう。だから申請中は打刻を止める（D-063）。
-- `attendanceView()` の戻り値は、状態・本日の記録・押せるボタンをまとめた配列（`'status'`・`'statusLabel'`・`'checkIn'`・`'checkOut'`・`'break'`・`'buttons'`・`'locked'`）。標準終了時刻を渡しているので、`'buttons'` には簡単残業申請の `'overtime'` も入る。
+- `pendingStatesOf()`：今日の申請を DB から1回だけ読み、`['correction' => …, 'overtime' => …]` を返す（[src_requests.md](./src_requests.md)）。
+- `$pending['correction']`：今日の分の修正・新規登録の申請が「申請中」なら `true`。申請が承認されると、勤怠の行が申請の値で上書きされ、その間に押した打刻が消えてしまう。だから申請中は打刻を止める（D-063）。
+- `$pending['overtime']`：今日の残業申請が「申請中」なら `true`。そのときは簡単残業申請のボタンを押せなくし、ボタンの下に「申請中です」の案内を出す（D-069）。
+- `attendanceView()` の戻り値は、状態・本日の記録・押せるボタンをまとめた配列（`'status'`・`'statusLabel'`・`'checkIn'`・`'checkOut'`・`'break'`・`'buttons'`・`'locked'`・`'overtimePending'`）。標準終了時刻を渡しているので、`'buttons'` には簡単残業申請の `'overtime'` も入る。
 - `$headerStatus = $view;`：共通の上部（`templates/header.php`）は、`$headerStatus` があれば状態バッジ（「勤務中」など）を出す。メイン画面だけが、これを用意する（[templates.md](./templates.md)）。
 
 > **ここが重要**：`$standardEnd` は `if ($isEmployee)` の中でしか作られない。後半の HTML でも `$standardEnd` を使うが、それは `<?php else: ?>`（社員・管理者）の側だけなので、未定義の変数を読むことはない。**前半の `if` と、後半の `if` の条件をそろえている**のがポイント。
@@ -215,11 +217,15 @@ include(__DIR__ . '/templates/header.php');
 ```php
 <div class="overtime">
     <button class="overtime__button" type="button" id="overtime-open" <?= $view['buttons']['overtime'] ? '' : 'disabled' ?>>簡単残業申請</button>
-    <p class="overtime__note">退勤済みで、退勤が <?= h(formatTime($standardEnd)) ?> より後の場合に申請できます</p>
+    <p class="overtime__note" id="overtime-note"<?= $view['overtimePending'] ? ' hidden' : '' ?>>退勤済みで、退勤が <?= h(formatTime($standardEnd)) ?> より後の場合に申請できます</p>
+    <p class="overtime__note" id="overtime-pending" role="status"<?= $view['overtimePending'] ? '' : ' hidden' ?>><?= h(OVERTIME_PENDING_MESSAGE) ?></p>
 </div>
 ```
 
-- 押せるかどうかは、`attendanceView()` が入れた `'overtime'`（退勤が記録済みで、標準終了時刻より後か）で決める。
+- 押せるかどうかは、`attendanceView()` が入れた `'overtime'`（退勤が記録済みで、標準終了時刻より後か。今日の残業申請が申請中なら `false`）で決める。
+- ボタンの下の案内は2つ用意して、**どちらか1つだけ**を出す。今日の残業申請が申請中（`overtimePending` が `true`）なら、「申請できる条件」（`#overtime-note`）に `hidden` を付けて隠し、「本日分の残業申請は申請中です。」（`#overtime-pending`）を出す。申請中でなければ、その逆（PR 9。D-069）。
+- 2つの `<p>` を両方置いておくのは、`js/main.js` が申請のあとに `hidden` を付け替えるだけで、案内を切り替えられるようにするため（7章の打刻の案内と同じやり方）。文は定数 `OVERTIME_PENDING_MESSAGE`（`src/attendance.php`）。
+- `role="status"`：画面の読み上げソフトに、状態の案内であることを伝える。申請のあとに出たときも読み上げられる。
 - `formatTime($standardEnd)`：`'18:00:00'` → `'18:00'`（[src_functions.md](./src_functions.md)）。標準終了時刻は勤務設定の画面で変えられるので、文の中の時刻も DB の値から出す。
 
 ## 10. 通知と、2つのウィンドウ
@@ -305,7 +311,7 @@ include(__DIR__ . '/templates/header.php');
 
 ## 関連するファイル
 
-- 読み込む部品：[src_functions.md](./src_functions.md)、[src_dbconnect.md](./src_dbconnect.md)、[src_auth.md](./src_auth.md)、[src_session.md](./src_session.md)、[src_attendance.md](./src_attendance.md)（`attendanceView()`）、[src_requests.md](./src_requests.md)（`isCorrectionPending()`）、[src_queries_departments_sequences_work_settings.md](./src_queries_departments_sequences_work_settings.md)（`fetchWorkSettings()`）
+- 読み込む部品：[src_functions.md](./src_functions.md)、[src_dbconnect.md](./src_dbconnect.md)、[src_auth.md](./src_auth.md)、[src_session.md](./src_session.md)、[src_attendance.md](./src_attendance.md)（`attendanceView()`）、[src_requests.md](./src_requests.md)（`pendingStatesOf()`）、[src_queries_departments_sequences_work_settings.md](./src_queries_departments_sequences_work_settings.md)（`fetchWorkSettings()`）
 - 共通の上部・下部：[templates.md](./templates.md)
 - 画面の動き：[js_main.md](./js_main.md)（時計、`render()`、ボタンの送信、上書きの確認、簡単残業申請）
 - 送り先の API：[api_attendance.md](./api_attendance.md)（出退勤）、[api_requests.md](./api_requests.md)（簡単残業申請）

@@ -148,7 +148,7 @@ function approvalItemView(array $row, string $standardEnd): array {
 
 ```mermaid
 flowchart TD
-    A[コメントの文字数を確かめる] --> B{500 文字を超える？}
+    A[却下なら、コメントの文字数を確かめる] --> B{却下で 500 文字を超える？}
     B -- はい --> E1[ok: false を返す]
     B -- いいえ --> C[トランザクション開始]
     C --> D[申請を読み、行をロックする]
@@ -175,7 +175,8 @@ function reviewRequest(PDO $pdo, array $user, int $requestId, string $decision, 
         throw new InvalidArgumentException('知らない操作です: ' . $decision);
     }
     $comment = trim($comment);
-    if (mb_strlen($comment) > APPROVAL_COMMENT_MAX_LENGTH) {
+    // コメントを使うのは却下のときだけ。承認のときは、長さを確かめない（D-069）
+    if ($decision === 'reject' && mb_strlen($comment) > APPROVAL_COMMENT_MAX_LENGTH) {
         return ['ok' => false, 'errors' => ['comment' => 'コメントは ' . APPROVAL_COMMENT_MAX_LENGTH . ' 文字までにしてください。']];
     }
 ```
@@ -183,6 +184,7 @@ function reviewRequest(PDO $pdo, array $user, int $requestId, string $decision, 
 - `$decision` は API で確かめ済みだが、ほかから呼ばれたときのために、ここでも確かめる。知らない値は**プログラムの誤り**なので例外にする（`actionMode()` の最後の `throw` と同じ考え方）。
 - `mb_strlen()`：**文字の数**を数える。`strlen()` はバイトの数なので、日本語（1文字が 3 バイト）だと3倍に数えてしまう。DB の `VARCHAR(500)` も文字の数なので、`mb_strlen()` で合わせる。
 - 文字数の確認は、DB に触る前に行う。ロックを取ってから断るより、無駄が無い。
+- `$decision === 'reject' &&`：コメントを保存するのは却下のときだけ（承認のときは `null` を記録する。下の「申請の状態を変える」）。だから長さを確かめるのも却下のときだけにしている。前は承認のときも確かめていたので、画面を通さずに長いコメント付きで「承認」を送ると、使わないコメントのせいで断られていた。PR 9 で直した（D-069。`tests/ApprovalsDbTest.php` の `testCommentLengthOnlyForReject()`）。
 
 ### トランザクションの開始と、申請のロック
 

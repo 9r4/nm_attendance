@@ -113,6 +113,18 @@ public function testFormatEmployeeId(): void {
 - 999 と 1000、1098 と 1099 など、**形が切り替わる境目**を必ず試す。計算の誤り（1つずれ）は、境目で起きる。
 - 最後の2行は「全部の番号を作って、重複を取り除いても数が減らない」＝重複が無い、を確かめている。個別の例だけでなく、**性質（ルール全体）**を確かめる書き方。このテストで、DB設計書の採番の例の番号のずれが見つかった。
 
+### 誤りの並ぶ順も確かめる
+
+```php
+        // 複数の誤りは、画面の順に並ぶ（画面には、先頭の1つを出す）
+        $this->assertSame(['name', 'email', 'password'], array_keys($errors(['name' => '', 'email' => 'x', 'password' => ''])));
+        // 画面の並び（氏名 → 部署 → メールアドレス）の順。部署とメールアドレスの両方が誤っていたら、部署が先（D-069）
+        $this->assertSame(['department_id', 'email'], array_keys($errors(['department_id' => '', 'email' => 'x'])));
+```
+
+- `array_keys()`：配列のキーだけを、入っている順に取り出す。誤りの文ではなく、**どの欄の誤りが、どの順に並ぶか**を確かめている。
+- 画面には最初の誤り1つだけを出すので、並ぶ順も「画面で何が出るか」を決めるルールの1つ。PR 9 で順を画面の並びに直したとき（D-069）、このテストを足して、順が戻らないようにした（[src_admin.md](./src_admin.md) 5章）。
+
 ## 5. 公開データと突き合わせる（`HolidaysTest.php`）
 
 ```php
@@ -175,6 +187,24 @@ $this->assertSame('pending', $this->request($id)['status']);
 - トリガー（表の更新の前に自動で動く処理）で、申請の更新を**必ず失敗**させる。承認の処理は「勤怠を更新 → 申請を更新」の順なので、1つ目は成功し、2つ目で失敗する。
 - そのあと、勤怠も元のまま（`null`）であることを確かめる。トランザクションの `rollBack()` が効いている証拠になる。
 - `$this->fail()`：ここまで来たら（例外が起きなかったら）失敗にする。
+
+### 直したことを、テストで残す（`ApprovalsDbTest.php`）
+
+```php
+    // コメントの長さを確かめるのは、却下のときだけ（承認ではコメントを使わない。D-069）
+    public function testCommentLengthOnlyForReject(): void {
+        $sales = $this->manager(self::SALES_MANAGER);
+        $long = str_repeat('あ', APPROVAL_COMMENT_MAX_LENGTH + 1);
+        $a = $this->addRequest('2025001', '2026-10-12', 'correction', ['check_in_at' => '2026-10-12 09:00:00']);
+        $this->assertSame(['comment' => 'コメントは 500 文字までにしてください。'], reviewRequest($this->pdo, $sales, $a, 'reject', $long)['errors']);
+        $this->assertSame('pending', $this->request($a)['status']);
+        $this->assertTrue(reviewRequest($this->pdo, $sales, $a, 'approve', $long)['ok']);
+        $this->assertSame(['approved', null], [$this->request($a)['status'], $this->request($a)['review_comment']]);
+    }
+```
+
+- `str_repeat('あ', 501)`：上限より1文字だけ長いコメントを作る（境目の1つ外）。
+- 同じ長いコメントで、却下は断られ（申請中のまま）、承認は通る（コメントは `null` で記録される）ことを、1つのテストで確かめる。PR 9 で直したこと（[src_approvals.md](./src_approvals.md) 5章）を、テストとして残している。
 
 ### 2つの接続で、ロックを確かめる（`AdminDbTest.php`）
 

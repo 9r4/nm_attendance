@@ -11,7 +11,7 @@
 
 | 行のあたり | 中身 |
 | --- | --- |
-| 先頭 | 定数（ボタンの名前、状態の名前、押したときの扱い） |
+| 先頭 | 定数（ボタンの名前、状態の名前、申請中のときの案内、押したときの扱い） |
 | 小さな関数 | `workDateOf()`・`minuteTimestamp()`・`formatClock()`：日付・時刻の形を作る |
 | 判断する関数 | `isOnBreak()`・`attendanceStatus()`・`actionMode()`・`overtimeAvailable()` |
 | 表示を作る関数 | `attendanceView()`：画面に出す値をまとめる |
@@ -34,6 +34,16 @@ const ATTENDANCE_ACTION_LABELS = [
 
 - `const` で配列の定数を作れる（PHP 5.6 以降）。キーが「プログラムの中での名前」、値が「画面に出す名前」。
 - この配列は、**「受け付けてよい操作の一覧」**も兼ねている。API は `isset(ATTENDANCE_ACTION_LABELS[$action])` で、送られてきた `action` がこの4つのどれかを確かめる（それ以外は 400）。一覧を1か所にまとめておくと、操作を増やすときも、ここだけ直せばよい。
+
+```php
+// 今日の修正・新規登録が申請中のときの案内（D-063）
+const PUNCH_LOCKED_MESSAGE = '本日の修正申請が申請中のため、打刻できません。打刻する場合は、記録表示で申請を取り消してください。';
+
+// 今日の残業申請が申請中のときの、簡単残業申請のボタンの下の案内（D-069）
+const OVERTIME_PENDING_MESSAGE = '本日分の残業申請は申請中です。';
+```
+
+- 申請中のときに画面へ出す文。`PUNCH_LOCKED_MESSAGE` は打刻を押したときの通知（7章）、`OVERTIME_PENDING_MESSAGE` は `index.php` が簡単残業申請のボタンの下に出す案内（[index.md](./index.md)）。文を定数にしておくと、画面と API で同じ文を使える。
 
 ```php
 const ACTION_RECORD = 'record';            // そのまま記録する
@@ -160,10 +170,14 @@ function overtimeAvailable(?array $attendance, string $standardEnd): bool {
 ## 6. `attendanceView()`：画面に出す値をまとめる
 
 ```php
-function attendanceView(?array $attendance, ?string $standardEnd = null, bool $locked = false): array {
+// 画面に出す値（状態・本日の記録・押せるボタン）。メイン画面の表示と、API の応答の両方で使う
+// $standardEnd（標準終了時刻 '18:00:00'）を渡すと、簡単残業申請のボタンを押せるか（overtime）も入れる
+// $locked：今日の修正・新規登録が申請中で、打刻を止めているか（D-063）。true なら、出勤・退勤・休憩のボタンをすべて押せなくする
+// $overtimePending：今日の残業申請が申請中か（D-069）。true なら、簡単残業申請のボタンを押せなくする（申請中の重複は DB でも断る）
+function attendanceView(?array $attendance, ?string $standardEnd = null, bool $locked = false, bool $overtimePending = false): array {
 ```
 
-- `= null`・`= false` は**引数の既定値**。呼ぶときに省略すると、この値になる。記録表示（6章）は `attendanceView($row)` と1つだけ渡し、メイン画面は3つ渡す。
+- `= null`・`= false` は**引数の既定値**。呼ぶときに省略すると、この値になる。記録表示（[src_records.md](./src_records.md)）は `attendanceView($row)` と1つだけ渡し、メイン画面は4つ渡す。
 
 ```php
     $buttons = [];
@@ -176,6 +190,15 @@ function attendanceView(?array $attendance, ?string $standardEnd = null, bool $l
 - `!$locked &&`：今日の修正が申請中（D-063）なら、`actionMode()` の答えにかかわらず、全部押せなくする。
 
 ```php
+    if ($standardEnd !== null) {
+        $buttons['overtime'] = !$overtimePending && overtimeAvailable($attendance, $standardEnd);
+    }
+```
+
+- 標準終了時刻を渡されたとき（メイン画面と API）だけ、簡単残業申請のボタン（`'overtime'`）も入れる。記録表示はボタンを使わないので入れない。
+- `!$overtimePending &&`：今日の残業申請が申請中なら、`overtimeAvailable()` の答えにかかわらず押せなくする（PR 9。D-069）。前は、申請したあとも押せるままで、もう一度送ると「本日分の残業申請は、すでに申請中です。」と断られていた。重複は DB の一意制約でも断るので、ここは「押す前に分かるようにする」ための判断。
+
+```php
     return [
         'status' => $status,
         'statusLabel' => ATTENDANCE_STATUS_LABELS[$status],
@@ -184,9 +207,12 @@ function attendanceView(?array $attendance, ?string $standardEnd = null, bool $l
         'break' => $breakLabel,
         'buttons' => $buttons,
         'locked' => $locked,
+        'overtimePending' => $overtimePending,
     ];
 }
 ```
+
+- `'overtimePending'` は、`index.php` と `js/main.js` が、ボタンの下の案内を「申請できる条件」と「申請中です」のどちらにするかに使う。
 
 > **ここが重要**：この配列が、**PHP と JavaScript の「約束の形」**になっている。`index.php` は最初の表示にこれを使い、同じものを JSON にして `data-view` に埋め込む。API も、処理のあとに同じ形で返す。JavaScript（`js/main.js` の `render()`）は、この形の値を受け取って画面を書き換えるだけ。表示の作り方が PHP の1か所にまとまっているので、最初の表示と、ボタンを押したあとの表示が食い違わない。
 
@@ -207,6 +233,26 @@ flowchart TD
     G --> H[recorded か overwritten を返す]
 ```
 
+```php
+function performAttendanceAction(PDO $pdo, string $employeeId, string $action, bool $overwrite, int $now, ?string $standardEnd = null, bool $locked = false, bool $overtimePending = false): array {
+```
+
+- 引数の `$locked`（今日の修正が申請中か）と `$overtimePending`（今日の残業申請が申請中か）は、呼ぶ側（`api/attendance.php`）が `pendingStatesOf()` で調べて渡す（[src_requests.md](./src_requests.md)）。
+- `$overtimePending` は記録には使わない。返す `view` を作る**すべての** `attendanceView()` の呼び出しにそのまま渡して、押したあとの表示でも、簡単残業申請のボタンが押せないままになるようにしている。
+
+```php
+    $attendance = fetchAttendance($pdo, $employeeId, $workDate);
+    if ($locked) {
+        return [
+            'result' => 'unavailable',
+            'message' => PUNCH_LOCKED_MESSAGE,
+            'view' => attendanceView($attendance, $standardEnd, true, $overtimePending),
+        ];
+    }
+```
+
+- 今日の修正が申請中なら、記録せずに `unavailable` と案内の文を返す（D-063）。
+
 ### 確認の往復（上書き）
 
 ```php
@@ -218,7 +264,7 @@ flowchart TD
                 'title' => $label . 'を上書きしますか？',
                 'body' => '本日の' . $label . 'は、すでに ' . formatClock($current) . ' で記録されています。今の時刻で上書きしますか？',
             ],
-            'view' => attendanceView($attendance, $standardEnd),
+            'view' => attendanceView($attendance, $standardEnd, false, $overtimePending),
         ];
     }
 ```
@@ -241,7 +287,7 @@ flowchart TD
                     return [
                         'result' => 'conflict',
                         …
-                        'view' => attendanceView(fetchAttendance($pdo, $employeeId, $workDate), $standardEnd),
+                        'view' => attendanceView(fetchAttendance($pdo, $employeeId, $workDate), $standardEnd, false, $overtimePending),
                     ];
                 }
             } else {
@@ -262,7 +308,7 @@ flowchart TD
     return [
         'result' => $result,
         'message' => $message,
-        'view' => attendanceView(fetchAttendance($pdo, $employeeId, $workDate), $standardEnd),
+        'view' => attendanceView(fetchAttendance($pdo, $employeeId, $workDate), $standardEnd, false, $overtimePending),
     ];
 ```
 

@@ -50,7 +50,7 @@ include_once(__DIR__ . '/../src/requests.php');
 
 - `__DIR__` は「このファイルがあるフォルダ」（`…/attendance/api`）。`/../src/…` で1つ上の `src` を指す。`__DIR__` を付けておくと、どこから呼ばれても同じファイルを読める。
 - `src/attendance.php` は直接読んでいない。`src/requests.php` の中で `include_once(__DIR__ . '/attendance.php');` しているので、それで読み込まれる。`include_once` は「すでに読んだファイルは、もう読まない」ので、同じファイルを何か所から読んでも、関数の二重定義にならない。
-- `src/requests.php` を読むのは、最後に使う `isCorrectionPending()`（今日の修正が申請中か）がそこにあるため（[src_requests.md](./src_requests.md)）。
+- `src/requests.php` を読むのは、最後に使う `pendingStatesOf()`（今日の修正・残業申請が申請中か）がそこにあるため（[src_requests.md](./src_requests.md)）。
 - `dbconnect.php` を読んだ時点で DB に接続し、`$pdo` ができる。接続できなければ、そこで「データベースに接続できません。」を出して終わる。
 
 ## 2. 門番 1：POST だけを受け付ける
@@ -135,12 +135,14 @@ $overwrite = ($_POST['overwrite'] ?? '') === '1';
 
 ```php
 $now = time();
-// 今日の修正・新規登録が申請中なら、打刻しない（D-063）
-$locked = isCorrectionPending($pdo, $currentUser['employee_id'], workDateOf($now));
-jsonResponse(200, performAttendanceAction($pdo, $currentUser['employee_id'], $action, $overwrite, $now, fetchWorkSettings($pdo)['standard_end'], $locked));
+// 今日の修正・新規登録が申請中なら打刻しない（D-063）。残業申請が申請中なら、簡単残業申請のボタンを押せなくして返す（D-069）
+$pending = pendingStatesOf($pdo, $currentUser['employee_id'], workDateOf($now));
+jsonResponse(200, performAttendanceAction($pdo, $currentUser['employee_id'], $action, $overwrite, $now, fetchWorkSettings($pdo)['standard_end'], $pending['correction'], $pending['overtime']));
 ```
 
-- `isCorrectionPending()`：今日の分の修正・新規登録が申請中なら `true`。申請中に打刻すると、承認されたときに申請の値で上書きされ、押した打刻が消えてしまうので、打刻を止める（D-063）。
+- `pendingStatesOf()`：今日の申請を DB から1回だけ読み、`['correction' => …, 'overtime' => …]` を返す（[src_requests.md](./src_requests.md)）。
+- `$pending['correction']`：今日の分の修正・新規登録が申請中なら `true`。申請中に打刻すると、承認されたときに申請の値で上書きされ、押した打刻が消えてしまうので、打刻を止める（D-063）。
+- `$pending['overtime']`：今日の残業申請が申請中なら `true`。打刻には関係しないが、返す表示（`view`）で簡単残業申請のボタンを押せないままにするために渡す（D-069）。渡さないと、打刻のあとに返る表示でボタンが押せる状態に戻ってしまう。
 - `fetchWorkSettings($pdo)['standard_end']`：勤務設定の標準終了時刻（`'18:00:00'` など）。打刻のあとに返す表示で、簡単残業申請のボタンを押せるか（`buttons.overtime`）を決めるのに使う。
 - `performAttendanceAction()` が返す配列（`result`・`message`・`view` など）を、そのまま JSON にして 200 で返す。上書きの確認（`confirm`）や、押せない（`unavailable`）のときも 200 で返し、どうなったかは `result` で伝える。中身は [src_attendance.md](./src_attendance.md) 7章。
 
@@ -165,7 +167,7 @@ jsonResponse(200, performAttendanceAction($pdo, $currentUser['employee_id'], $ac
 
 - 呼ぶ側：`js/main.js` の `send()`（[js_main.md](./js_main.md)）
 - 処理を任せる先：`src/attendance.php` の `performAttendanceAction()`（[src_attendance.md](./src_attendance.md)）
-- 申請中かの判断：`src/requests.php` の `isCorrectionPending()`（[src_requests.md](./src_requests.md)）
+- 申請中かの判断：`src/requests.php` の `pendingStatesOf()`（[src_requests.md](./src_requests.md)）
 - ログイン・CSRF：`src/auth.php` の `currentUser()`（[src_auth.md](./src_auth.md)）、`src/session.php` の `requireValidCsrfToken()`（[src_session.md](./src_session.md)）
 - 共通の関数：`src/functions.php` の `jsonResponse()`・`appUrl()`（[src_functions.md](./src_functions.md)）
 - 同じ形の API：`api/requests.php`（[api_requests.md](./api_requests.md)）

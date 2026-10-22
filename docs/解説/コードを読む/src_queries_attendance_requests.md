@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | `insertCorrectionRequest()` | INSERT（値 11 個） | `src/requests.php` の `submitCorrectionRequest()` |
 | `insertOvertimeRequest()` | INSERT | `src/requests.php` の `submitOvertimeRequest()` |
-| `fetchMonthlyRequests()` | SELECT（複数行） | `records/index.php`、`src/requests.php` の `isCorrectionPending()`（`index.php`・`api/attendance.php` から） |
+| `fetchMonthlyRequests()` | SELECT（複数行） | `records/index.php`、`src/requests.php` の `pendingStatesOf()`（`index.php`・`api/attendance.php` から） |
 | `deletePendingRequest()` | DELETE | `src/requests.php` の `submitCancelRequest()` |
 | `fetchPendingRequests()` | SELECT（JOIN・LEFT JOIN） | `approvals/index.php` |
 | `fetchProcessedRequests()` | SELECT（同じ表を2回 JOIN・LIMIT） | `approvals/index.php` |
@@ -127,7 +127,7 @@ function fetchMonthlyRequests(PDO $pdo, string $employeeId, string $fromDate, st
 
 - 形は `fetchMonthlyAttendances()` と同じ（`BETWEEN` は両端を含む、`fetchAll()` は行が無ければ `[]`）。条件の `employee_id` と `target_date` は、索引 `idx_requests_employee_date` の並びと同じなので、この索引で探せる。
 - **`ORDER BY target_date, created_at, id`**：日付の順、同じ日なら申請した順。`created_at` は秒までしか持たないので、同じ秒に2件あると順番が決まらない。最後に `id`（必ず違う値）を足して、**順番を必ず1通りに決めている**。呼ぶ側の `requestBadgeStatus()` は「最後の行＝最新の申請」として使うので、順番が大事。
-- 呼ぶ側は2つ。記録表示（`records/index.php`）は月の初日〜末日を渡す。`isCorrectionPending()` は `$date, $date`（初日と末日に同じ日）を渡して、**1日分の申請**を読む（今日の修正が申請中かを調べ、メイン画面の打刻を止めるため。D-063）。
+- 呼ぶ側は2つ。記録表示（`records/index.php`）は月の初日〜末日を渡す。`pendingStatesOf()` は `$date, $date`（初日と末日に同じ日）を渡して、**1日分の申請**を読む。読んだ1回分の行から、今日の修正が申請中か（メイン画面の打刻を止める。D-063）と、今日の残業申請が申請中か（簡単残業申請のボタンを止める。D-069）の両方を調べる。
 
 > **注意（決まりと違うところ）**：ここだけ **`SELECT *`** になっている。`TODO` の手順では、使う 17 列を書く形だった。`*` だと、画面で使わない `employee_id`・`reviewer_id`・`reviewed_at`・`pending_key`・`updated_at` も返る。いまは害はない（呼ぶ側は使う列だけを読む）が、表に列が増えると戻り値も黙って増える。ほかの関数と同じく、列を書く形にそろえるとよい。
 
