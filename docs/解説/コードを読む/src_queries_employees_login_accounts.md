@@ -23,7 +23,7 @@
 | | `updateLoginActive()` | UPDATE | `deactivateAccount()`・`reactivateAccount()`（トランザクションの中） |
 | | `updatePasswordHash()` | UPDATE | `src/admin.php` の `resetPassword()` |
 
-`fetchEmployeeProfile()` と `fetchLoginAccount()` は PR 2〜6（ログインと、ログイン中の利用者）、残りは PR 7（システム管理者のアカウント管理）で書いた。
+`fetchEmployeeProfile()`・`fetchLoginAccount()`・`updateLastLoginAt()` は PR 2（認証）で書き、`fetchEmployeeProfile()` には PR 4・PR 6 で列を足した。残りは PR 7（システム管理者のアカウント管理）で書いた。
 
 ---
 

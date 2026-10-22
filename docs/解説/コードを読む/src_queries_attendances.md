@@ -19,7 +19,7 @@
 | `upsertAttendanceTimes()` | INSERT … ON DUPLICATE KEY UPDATE | `src/approvals.php` の `reviewRequest()`（トランザクションの中） |
 | `upsertOvertimeEnd()` | INSERT … ON DUPLICATE KEY UPDATE | `reviewRequest()`（トランザクションの中） |
 
-上の4つ（読む・作る・直す）は PR 3〜5、下の2つ（承認の反映）は PR 6 で書いた。下へ行くほど、SQL が少しずつ難しくなる。
+上の6つ（`fetchAttendance()` と、出勤・退勤・休憩の記録）は PR 3（メイン画面）、`fetchMonthlyAttendances()` は PR 4（記録表示）、下の2つ（承認の反映）は PR 6 で書いた。`fetchAttendance()` には、PR 5 で列を1つ足した。下へ行くほど、SQL が少しずつ難しくなる。
 
 ---
 

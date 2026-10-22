@@ -21,7 +21,7 @@
 | `fetchRequestForUpdate()` | SELECT … FOR UPDATE | `src/approvals.php` の `reviewRequest()`（トランザクションの中） |
 | `updateRequestStatus()` | UPDATE | `reviewRequest()`（トランザクションの中） |
 
-上の4つが社員の操作（PR 5）、下の4つが管理者の操作（PR 6）。
+上の4つが社員の操作（PR 5。`deletePendingRequest()` だけは、あとから足した PR 5 の補足）、下の4つが管理者の操作（PR 6）。
 
 ---
 
