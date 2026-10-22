@@ -49,10 +49,15 @@ function csrfToken(): string {
     return $_SESSION['csrf_token'];
 }
 
+// 送られてきた CSRF トークンが正しいか
+function isValidCsrfToken(): bool {
+    $token = $_POST['csrf_token'] ?? '';
+    return is_string($token) && !empty($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
+
 // 送られてきた CSRF トークンが正しくなければ、処理を止める
 function requireValidCsrfToken(): void {
-    $token = $_POST['csrf_token'] ?? '';
-    if (!is_string($token) || empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $token)) {
+    if (!isValidCsrfToken()) {
         abort(400, '不正なリクエストです。画面を開き直して、もう一度お試しください。');
     }
 }

@@ -18,7 +18,7 @@
 | 入力を確かめる関数 | `validateCorrection()`（修正・新規登録）・`validateOvertime()`（簡単残業申請） |
 | 保存する関数 | `isDuplicateError()`・`submitCorrectionRequest()`・`submitOvertimeRequest()` |
 | 表示を作る関数 | `requestTypeLabel()`・`requestChanges()`・`requestView()` |
-| 申請中かを調べる関数 | `requestBadgeStatus()`・`hasPendingCorrection()`・`isCorrectionPending()` |
+| 申請中かを調べる関数 | `requestBadgeStatus()`・`hasPendingCorrection()`・`hasPendingOvertime()`・`pendingStatesOf()` |
 | 取り消す関数 | `submitCancelRequest()` |
 
 [src_attendance.md](./src_attendance.md) と同じく、**下の関数ほど上の関数を組み合わせて使う**。上から読むと、部品 → 組み立て の順に理解できる。
@@ -344,7 +344,7 @@ function submitOvertimeRequest(PDO $pdo, array $user, array $input, int $now, st
 - 形は `submitCorrectionRequest()` と同じ。申請した時点の残業終了時刻（`overtime_end_at`）を、変更前の値として保存する。
 - 受け付けたときの文に、申請した時刻を入れる（例：「残業申請を受け付けました（〜19:00・申請中）」）。メイン画面は、この文をそのまま通知に出す。
 
-> **ここが重要**：「申請中の同じ申請は1件まで」（BR-002）は、**先に SELECT で調べず、DB の一意制約で守っている**。調べてから INSERT するやり方では、2つの画面で同時に送ったときに防げない（[src_attendance.md](./src_attendance.md) 7章と同じ考え方）。`attendance_requests` には、申請中のときだけ `1`、それ以外は `NULL` になる列（`pending_key`）があり、「社員・対象日・種別・`pending_key`」に一意制約が付いている。一意制約は `NULL` どうしの重複を許すので、承認・却下された申請はいくつあってもよく、申請中だけが1件に制限される（くわしくは [src_queries_attendance_requests.md](./src_queries_attendance_requests.md)）。アプリは 1062 のときだけ受け止めて分かりやすい文に変え、それ以外のエラーは `throw $e;` で投げ直して隠さない。
+> **ここが重要**：「申請中の同じ申請は1件まで」（BR-002）は、**先に SELECT で調べず、DB の一意制約で守っている**。調べてから INSERT するやり方では、2つの画面で同時に送ったときに防げない（[src_attendance.md](./src_attendance.md) 7章と同じ考え方）。`attendance_requests` には、申請中のときだけ `1`、それ以外は `NULL` になる列（`pending_key`）があり、「社員・対象日・種別・`pending_key`」に一意制約が付いている。一意制約は `NULL` どうしの重複を許すので、承認・却下された申請はいくつあってもよく、申請中だけが1件に制限される（くわしくは [src_queries_attendance_requests.md](./src_queries_attendance_requests.md)）。アプリは 1062 のときだけ受け止めて分かりやすい文に変え、それ以外のエラーは `throw $e;` で投げ直して隠さない。PR 9 から、メイン画面の簡単残業申請のボタンは、今日の残業申請が申請中なら押せなくなる（8章の `pendingStatesOf()`。D-069）。ただしそれは使いやすさのためで、最後の守りはこの一意制約のまま。
 
 ## 7. 表示を作る：`requestTypeLabel()`・`requestChanges()`・`requestView()`
 
@@ -446,16 +446,31 @@ function hasPendingCorrection(array $requests): bool {
     return false;
 }
 
-// その日の修正・新規登録が申請中か（申請中は、メイン画面の打刻を止める。D-063）
-function isCorrectionPending(PDO $pdo, string $employeeId, string $date): bool {
-    return hasPendingCorrection(fetchMonthlyRequests($pdo, $employeeId, $date, $date));
+// その日の申請に、申請中の残業申請があるか
+function hasPendingOvertime(array $requests): bool {
+    foreach ($requests as $request) {
+        if ($request['request_type'] === 'overtime' && $request['status'] === 'pending') {
+            return true;
+        }
+    }
+    return false;
+}
+
+// メイン画面で使う、今日の申請中の状態（修正・新規登録 → 打刻を止める。D-063。残業 → 簡単残業申請を止める。D-069）
+// SQL は1回だけ実行する。戻り値：['correction' => bool, 'overtime' => bool]
+function pendingStatesOf(PDO $pdo, string $employeeId, string $date): array {
+    $requests = fetchMonthlyRequests($pdo, $employeeId, $date, $date);
+    return ['correction' => hasPendingCorrection($requests), 'overtime' => hasPendingOvertime($requests)];
 }
 ```
 
-- **残業の申請中は数えない**。打刻を止めるのは、修正・新規登録が申請中のときだけ（承認で勤怠の4つの時刻が申請の値に上書きされ、押した打刻が消えてしまうため。D-063）。
-- `hasPendingCorrection()` は配列を受け取るだけ（DB を使わない）。記録表示では、月の申請をまとめて読んだあと、日ごとに使う（`src/records.php`）。
-- `isCorrectionPending()` は、DB から読んで `hasPendingCorrection()` に渡す薄い関数。メイン画面（`index.php`）と打刻の API（`api/attendance.php`）が使う。
+- `hasPendingCorrection()` は**残業の申請中は数えない**。打刻を止めるのは、修正・新規登録が申請中のときだけ（承認で勤怠の4つの時刻が申請の値に上書きされ、押した打刻が消えてしまうため。D-063）。
+- `hasPendingOvertime()` は、その逆で、残業の申請中だけを数える。修正の申請中や、却下された残業申請は数えない。
+- どちらも配列を受け取るだけ（DB を使わない）。`hasPendingCorrection()` は、記録表示でも、月の申請をまとめて読んだあと日ごとに使う（`src/records.php`）。
+- `pendingStatesOf()` は、DB から今日の申請を1回だけ読んで、2つの関数に渡す。メイン画面（`index.php`）と打刻の API（`api/attendance.php`）が使い、`'correction'` を打刻の停止（`$locked`）に、`'overtime'` を簡単残業申請のボタンの停止（`$overtimePending`）に渡す（[src_attendance.md](./src_attendance.md) 6章）。
 - 1日分を読むのに、新しい SQL を作らず、期間を読む `fetchMonthlyRequests()` に**初日と末日に同じ日**を渡して使い回している。
+
+> **ここが重要**：前は、修正の申請中だけを調べる `isCorrectionPending()` があった。PR 9 で残業の申請中も調べることになったとき、関数を2つ並べると、同じ日の申請を DB から2回読むことになる。そこで `pendingStatesOf()` に置き換え、**SQL は1回、判断は DB を使わない関数で2つ**、という形にした（D-069）。判断の関数は配列を渡すだけなので、`tests/RequestsTest.php` で DB なしに確かめられる。
 
 ## 9. `submitCancelRequest()`：申請を取り消す
 
@@ -497,7 +512,7 @@ function submitCancelRequest(PDO $pdo, array $user, array $input): array {
 | 重複は DB の一意制約で守る | BR-002 と 1062 の受け止め |
 | 申請した時点の値を残す | `original_…` の列と `requestChanges()` |
 | 権限は SQL の条件でも守る | 取り消しは本人・申請中を `WHERE` に入れる |
-| DB を使わない関数に分ける | `validate…()`・`hasPendingCorrection()` はテストしやすい |
+| DB を使わない関数に分ける | `validate…()`・`hasPendingCorrection()`・`hasPendingOvertime()` はテストしやすい |
 
 ## 関連するファイル
 
@@ -505,4 +520,4 @@ function submitCancelRequest(PDO $pdo, array $user, array $input): array {
 - 呼ばれる側：`src/queries/attendance_requests.php`（`insertCorrectionRequest()`・`insertOvertimeRequest()`・`fetchMonthlyRequests()`・`deletePendingRequest()`。[src_queries_attendance_requests.md](./src_queries_attendance_requests.md)）、`src/attendance.php`（[src_attendance.md](./src_attendance.md)）
 - 画面の動き：`js/records.js`（[js_records.md](./js_records.md)）、`js/main.js`（[js_main.md](./js_main.md)）
 - テスト：`tests/RequestsTest.php`（入力のルール、変更前 → 申請値、バッジ）
-- 決めごと：[決定事項.md](../../決定事項.md)（D-041・D-062・D-063）
+- 決めごと：[決定事項.md](../../決定事項.md)（D-041・D-062・D-063・D-069）

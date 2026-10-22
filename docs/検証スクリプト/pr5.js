@@ -174,10 +174,14 @@ async function submitAndWaitReload(page) {
   check('受け付け', (await page.textContent('#toast')) === '残業申請を受け付けました（〜19:00・申請中）' && !(await visible(page, '#overtime-dialog')));
   r = sql(`SELECT request_type, requested_overtime_end_at, IFNULL(original_overtime_end_at,'NULL'), requested_check_in_at IS NULL, reason IS NULL FROM attendance_requests WHERE employee_id='2025001' AND target_date='${D}'`).split('\t');
   check('DB：残業の申請', r.join('|') === `overtime|${D} 19:00:00|NULL|1|1`, r.join('|'));
-  await page.click('#overtime-open'); await page.fill('#overtime-end', '19:10');
-  await page.click('#overtime-submit'); await page.waitForSelector('#overtime-error-form:not([hidden])');
-  check('2回目（BR-002）', (await page.textContent('#overtime-error-form')) === '本日分の残業申請は、すでに申請中です。');
-  await page.click('#overtime-cancel');
+  // PR 9（D-069）から、申請中のあいだはボタンを押せない。2回目（BR-002）は、画面を通さずに送って確かめる
+  check('申請中はボタンを押せない（D-069）', await page.$eval('#overtime-open', b => b.disabled));
+  const second = await page.evaluate(async () => {
+    const fd = new FormData(); fd.append('csrf_token', document.getElementById('attendance').dataset.csrfToken);
+    fd.append('type', 'overtime'); fd.append('overtime_end', '19:10');
+    return (await fetch('api/requests.php', { method: 'POST', body: fd })).json();
+  });
+  check('2回目（BR-002）', second.ok === false && second.errors.form === '本日分の残業申請は、すでに申請中です。', JSON.stringify(second));
   sql(`UPDATE attendances SET overtime_end_at='${D} 18:30:00', check_out_at='${D} 17:00:00' WHERE employee_id='2025001' AND work_date='${D}'`);
   await page.reload();
   check('退勤 17:00：押せない', await page.$eval('#overtime-open', b => b.disabled));

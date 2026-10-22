@@ -18,9 +18,9 @@ $view = null;
 if ($isEmployee) {
     $standardEnd = fetchWorkSettings($pdo)['standard_end'];
     $today = workDateOf($now);
-    // 今日の修正・新規登録が申請中なら、打刻を止める（D-063）
-    $locked = isCorrectionPending($pdo, $currentUser['employee_id'], $today);
-    $view = attendanceView(fetchAttendance($pdo, $currentUser['employee_id'], $today), $standardEnd, $locked);
+    // 今日の修正・新規登録が申請中なら打刻を止め（D-063）、残業申請が申請中なら簡単残業申請を止める（D-069）
+    $pending = pendingStatesOf($pdo, $currentUser['employee_id'], $today);
+    $view = attendanceView(fetchAttendance($pdo, $currentUser['employee_id'], $today), $standardEnd, $pending['correction'], $pending['overtime']);
     $headerStatus = $view;
 }
 
@@ -75,7 +75,8 @@ include(__DIR__ . '/templates/header.php');
 
             <div class="overtime">
                 <button class="overtime__button" type="button" id="overtime-open" <?= $view['buttons']['overtime'] ? '' : 'disabled' ?>>簡単残業申請</button>
-                <p class="overtime__note">退勤済みで、退勤が <?= h(formatTime($standardEnd)) ?> より後の場合に申請できます</p>
+                <p class="overtime__note" id="overtime-note"<?= $view['overtimePending'] ? ' hidden' : '' ?>>退勤済みで、退勤が <?= h(formatTime($standardEnd)) ?> より後の場合に申請できます</p>
+                <p class="overtime__note" id="overtime-pending" role="status"<?= $view['overtimePending'] ? '' : ' hidden' ?>><?= h(OVERTIME_PENDING_MESSAGE) ?></p>
             </div>
         </div>
 

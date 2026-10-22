@@ -121,7 +121,7 @@ jsonResponse(200, $result);
 - `(int) $requestId`：文字列を整数に変える（型変換、キャスト）。6章で数字だけと確かめてあるので、安全に変えられる。`reviewRequest()` の引数は `int $requestId` なので、文字列のままだと渡せない。
 - `reviewRequest()`（`src/approvals.php`）が、申請のロック・申請中か・承認範囲か・自分の申請でないかの確認、勤怠への反映、申請の状態の更新を、1つのトランザクションで行う。戻り値は次のどちらか。
   - 成功：`['ok' => true, 'message' => '山田 太郎 さんの申請を承認し、勤怠に反映しました。']`
-  - 断られた：`['ok' => false, 'errors' => ['form' => 'この申請は、すでに処理されています。…']]`（コメントが長すぎるときは `'comment'` のキー）
+  - 断られた：`['ok' => false, 'errors' => ['form' => 'この申請は、すでに処理されています。…']]`（却下でコメントが長すぎるときは `'comment'` のキー。承認のときはコメントを使わないので、長さも確かめない。D-069）
 - 成功のときだけ、`setFlash()` で通知をセッションに入れておく。JavaScript は成功を受け取ると画面を読み込み直し、`approvals/index.php` が `takeFlash()` でこの通知を取り出して出す。
 - **成功でも、断られた場合でも、HTTP の状態は 200** にしている。
 
@@ -141,7 +141,7 @@ jsonResponse(200, $result);
 | CSRF トークンが違う | 400 | ただの文（`text/plain`） |
 | 管理者でない | 403 | JSON（`message`） |
 | `request_id`・`decision` の形が違う | 400 | JSON（`message`） |
-| 断られた（処理済み・範囲外・自分の申請・見つからない・コメントが長い） | 200 | JSON（`ok: false`・`errors`） |
+| 断られた（処理済み・範囲外・自分の申請・見つからない・却下のコメントが長い） | 200 | JSON（`ok: false`・`errors`） |
 | 成功 | 200 | JSON（`ok: true`・`message`）。通知をセッションに予約 |
 | 想定外の例外 | 500 | ただの文（`text/plain`） |
 

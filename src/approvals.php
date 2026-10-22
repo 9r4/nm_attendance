@@ -67,7 +67,8 @@ function reviewRequest(PDO $pdo, array $user, int $requestId, string $decision, 
         throw new InvalidArgumentException('知らない操作です: ' . $decision);
     }
     $comment = trim($comment);
-    if (mb_strlen($comment) > APPROVAL_COMMENT_MAX_LENGTH) {
+    // コメントを使うのは却下のときだけ。承認のときは、長さを確かめない（D-069）
+    if ($decision === 'reject' && mb_strlen($comment) > APPROVAL_COMMENT_MAX_LENGTH) {
         return ['ok' => false, 'errors' => ['comment' => 'コメントは ' . APPROVAL_COMMENT_MAX_LENGTH . ' 文字までにしてください。']];
     }
 

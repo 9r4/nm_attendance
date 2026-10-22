@@ -97,6 +97,10 @@ final class AdminTest extends TestCase {
         $this->assertSame(['name' => '氏名を入力してください。'], $errors(['name' => ['x']]));
         // 複数の誤りは、画面の順に並ぶ（画面には、先頭の1つを出す）
         $this->assertSame(['name', 'email', 'password'], array_keys($errors(['name' => '', 'email' => 'x', 'password' => ''])));
+        // 画面の並び（氏名 → 部署 → メールアドレス）の順。部署とメールアドレスの両方が誤っていたら、部署が先（D-069）
+        $this->assertSame(['department_id', 'email'], array_keys($errors(['department_id' => '', 'email' => 'x'])));
+        $this->assertSame(['name', 'department_id', 'email', 'joined_on', 'role', 'password'],
+            array_keys($errors(['name' => '', 'department_id' => '', 'email' => '', 'joined_on' => '', 'role' => '', 'password' => ''])));
     }
 
     public function testLeftOnRange(): void {

@@ -262,9 +262,21 @@ function hasPendingCorrection(array $requests): bool {
     return false;
 }
 
-// その日の修正・新規登録が申請中か（申請中は、メイン画面の打刻を止める。D-063）
-function isCorrectionPending(PDO $pdo, string $employeeId, string $date): bool {
-    return hasPendingCorrection(fetchMonthlyRequests($pdo, $employeeId, $date, $date));
+// その日の申請に、申請中の残業申請があるか
+function hasPendingOvertime(array $requests): bool {
+    foreach ($requests as $request) {
+        if ($request['request_type'] === 'overtime' && $request['status'] === 'pending') {
+            return true;
+        }
+    }
+    return false;
+}
+
+// メイン画面で使う、今日の申請中の状態（修正・新規登録 → 打刻を止める。D-063。残業 → 簡単残業申請を止める。D-069）
+// SQL は1回だけ実行する。戻り値：['correction' => bool, 'overtime' => bool]
+function pendingStatesOf(PDO $pdo, string $employeeId, string $date): array {
+    $requests = fetchMonthlyRequests($pdo, $employeeId, $date, $date);
+    return ['correction' => hasPendingCorrection($requests), 'overtime' => hasPendingOvertime($requests)];
 }
 
 // 自分の申請中の申請を取り消す（削除する。D-063）。戻り値は submitCorrectionRequest() と同じ形

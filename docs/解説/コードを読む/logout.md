@@ -13,7 +13,7 @@
 | --- | --- |
 | 1〜5行 | 共通の部品を読み込む |
 | 7〜10行 | POST 以外なら、405 で止める |
-| 12〜15行 | セッションを始め、CSRF トークンを確かめ、ログアウトして、ログイン画面へ移す |
+| 12〜20行 | セッションを始め、すでにログアウトしていればログイン画面へ。そうでなければ CSRF トークンを確かめ、ログアウトして、ログイン画面へ移す |
 
 ---
 
@@ -48,17 +48,23 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 ```php
 startAppSession();
+// すでにログアウトしている（自動ログアウトなど）なら、確かめずにログイン画面へ移す。
+// ログインしていない人を「ログアウト」させても何も起きないので、CSRF の確認は要らない（D-069）
+if (!isset($_SESSION['user'])) {
+    redirect('login.php');
+}
 requireValidCsrfToken();
 logoutUser();
 redirect('login.php');
 ```
 
 - `startAppSession()`：セッションを始める。これをしないと `$_SESSION` が空のままで、トークンを確かめられない（[src_session.md](./src_session.md)）。
+- `if (!isset($_SESSION['user']))`：ログイン状態が無ければ、何もせずにログイン画面へ移す。`redirect()` はそこで処理を終えるので、下の行は動かない（[src_functions.md](./src_functions.md)）。
 - `requireValidCsrfToken()`：ログアウトボタンのフォームに埋め込まれた CSRF トークンを確かめる。違えば 400 で止める。
 - `logoutUser()`：セッションの中身と、ブラウザの Cookie を消す。
 - `redirect('login.php')`：ログイン画面へ移す。
 
-> **注意**：2時間以上操作しなかったあとで「ログアウト」を押すと、`startAppSession()` が先にログイン状態を消し、そのとき CSRF トークンも一緒に消える。そのため `requireValidCsrfToken()` が 400（「不正なリクエストです。…」）で止まる。ログイン状態はすでに消えているので、ログアウトできていないわけではない。
+> **ここが重要**：2時間以上操作しなかったあとで「ログアウト」を押すと、`startAppSession()` が先にログイン状態を消し、そのとき CSRF トークンも一緒に消える。前は、ここで `requireValidCsrfToken()` が 400（「不正なリクエストです。…」）で止まっていた。PR 9 で、**ログイン状態が無ければ CSRF を確かめずにログイン画面へ移す**ように直した（D-069）。ログインしていない人を「ログアウト」させても何も変わらないので、確かめなくても困らない。移った先のログイン画面には、`startAppSession()` が残した印（`timed_out`）で「一定時間操作がなかったため、ログアウトしました。…」が出る（[login.md](./login.md)）。
 
 ---
 
@@ -69,6 +75,7 @@ redirect('login.php');
 | 状態を変える操作は POST だけ | GET は 405 で断る |
 | 405 には `Allow` を付ける | `header('Allow: POST');` |
 | CSRF トークンで確かめる | `requireValidCsrfToken()` |
+| 確かめる意味が無いときは先に返す | ログイン状態が無ければ、すぐ `redirect('login.php')` |
 | 使う部品だけ読み込む | DB を使わないので `dbconnect.php` を読まない |
 
 ## 関連するファイル

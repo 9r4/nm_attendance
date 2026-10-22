@@ -267,7 +267,7 @@ CREATE TABLE work_settings (
 ## 8. `updateWorkSettings()`：勤務設定を変える
 
 ```php
-// 勤務設定を変える（PR 7。全社共通の1行。変えた日の履歴は持たない。D-019、D-067）
+// 勤務設定を変える（PR 7。全社共通の1行。変えた日の履歴は持たない。D-008、D-067）
 // $settings：['standard_start' => '09:00:00', 'standard_end' => '18:00:00', 'lunch_start' => '12:00:00', 'lunch_end' => '13:00:00']（呼び出し側が確認済み）
 function updateWorkSettings(PDO $pdo, array $settings): void {
     $sql = 'UPDATE work_settings SET standard_start = :standard_start, standard_end = :standard_end, lunch_start = :lunch_start, lunch_end = :lunch_end WHERE id = :id';

@@ -48,7 +48,7 @@ function inputRaw(array $input, string $key): string {
     return is_string($value) ? $value : '';
 }
 
-// 年と通番から社員コードを作る（D-013）。1〜999 は 'yyyy'＋3桁、1000〜3573 は 'yyyy'＋英字＋2桁（1000＝A01、1099＝A99、1100＝B01）
+// 年と通番から社員コードを作る（D-013）。1〜999 は 'yyyy'＋3桁、1000〜3573 は 'yyyy'＋英字＋2桁（1000＝A01、1098＝A99、1099＝B01）
 function formatEmployeeId(int $year, int $number): string {
     if ($number < 1 || $number > EMPLOYEE_NUMBER_MAX) {
         throw new InvalidArgumentException('通番が範囲外です: ' . $number);
@@ -92,7 +92,7 @@ function findDepartment(array $departments, int $id): ?array {
 // アカウント作成の入力を確認する（2-1 のルール）
 // $input：name、email、department_id、joined_on、role、approval_scope、password、password_confirm
 // $departments：fetchDepartments() の戻り値。$today：今日（'2026-10-15'）
-// 戻り値：['errors' => [項目 => 文]（画面の順）, 'values' => 確認した値]
+// 戻り値：['errors' => [項目 => 文]（画面の並びの順：氏名 → 部署 → メールアドレス → 入社日 → 権限 → 承認範囲 → パスワード。D-069）, 'values' => 確認した値]
 function validateAccount(array $input, array $departments, string $today): array {
     $values = [
         'name' => inputString($input, 'name'),
@@ -110,12 +110,6 @@ function validateAccount(array $input, array $departments, string $today): array
         $errors['name'] = '氏名は ' . ADMIN_NAME_MAX_LENGTH . ' 文字までにしてください。';
     }
 
-    if ($values['email'] === '') {
-        $errors['email'] = 'メールアドレスを入力してください。';
-    } elseif (strlen($values['email']) > ADMIN_EMAIL_MAX_LENGTH || filter_var($values['email'], FILTER_VALIDATE_EMAIL) === false) {
-        $errors['email'] = 'メールアドレスの形が正しくありません。';
-    }
-
     if ($values['department_id'] === '') {
         $errors['department_id'] = '部署を選んでください。';
     } else {
@@ -123,6 +117,12 @@ function validateAccount(array $input, array $departments, string $today): array
         if ($department === null || (int) $department['is_active'] !== 1) {
             $errors['department_id'] = '選んだ部署は使えません。画面を開き直してください。';
         }
+    }
+
+    if ($values['email'] === '') {
+        $errors['email'] = 'メールアドレスを入力してください。';
+    } elseif (strlen($values['email']) > ADMIN_EMAIL_MAX_LENGTH || filter_var($values['email'], FILTER_VALIDATE_EMAIL) === false) {
+        $errors['email'] = 'メールアドレスの形が正しくありません。';
     }
 
     $maxJoinedOn = date('Y-m-d', strtotime($today . ' +1 year'));
