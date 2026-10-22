@@ -66,5 +66,5 @@ include(__DIR__ . '/../templates/header.php');
         <?php endif; ?>
     </section>
 </main>
-<script src="<?= h(appUrl('js/admin.js')) ?>" defer></script>
+<script src="<?= h(assetUrl('js/admin.js')) ?>" defer></script>
 <?php include(__DIR__ . '/../templates/footer.php'); ?>
