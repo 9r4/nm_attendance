@@ -19,7 +19,7 @@ function fetchEmployeeProfile(PDO $pdo, string $employeeId): ?array {
     // 5. 見つからなかったら null、見つかったらその行を返す
     // throw new RuntimeException('fetchEmployeeProfile は未実装です');
 
-    $sql = 'SELECT e.employee_id, e.name, d.name AS department_name, e.joined_on, e.department_id FROM employees e JOIN departments d ON e.department_id = d.id WHERE e.employee_id = :employee_id';
+    $sql = 'SELECT e.employee_id, e.name, d.name AS department_name, e.joined_on, e.department_id, e.employment_status FROM employees e JOIN departments d ON e.department_id = d.id WHERE e.employee_id = :employee_id';
     $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
     $stmt->execute();
@@ -109,5 +109,23 @@ function fetchMemberAttendances(PDO $pdo, string $managerId, ?int $departmentId,
     // 3. 最後に ORDER BY d.id, e.employee_id を付ける（部署の作成順 → 社員コードの順）
     // 4. prepare → bindValue（:work_date と :manager_id は PDO::PARAM_STR、:department_id は付け足したときだけ PDO::PARAM_INT）→ execute
     // 5. fetchAll() の結果を返す
-    throw new RuntimeException('fetchMemberAttendances は未実装です');
+    // throw new RuntimeException('fetchMemberAttendances は未実装です');
+    $sql = 'SELECT e.employee_id, e.name, d.name AS department_name,
+        a.check_in_at, a.check_out_at, a.break_start_at, a.break_end_at
+    FROM employees e
+    JOIN departments d ON d.id = e.department_id
+    LEFT JOIN attendances a ON a.employee_id = e.employee_id AND a.work_date = :work_date
+    WHERE e.employment_status = \'active\' AND e.employee_id <> :manager_id';
+    if ($departmentId !== null) {
+        $sql .= ' AND e.department_id = :department_id';
+    }
+    $sql .= ' ORDER BY d.id, e.employee_id';
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':work_date', $workDate, PDO::PARAM_STR);
+    $stmt->bindValue(':manager_id', $managerId, PDO::PARAM_STR);
+    if ($departmentId !== null) {
+        $stmt->bindValue(':department_id', $departmentId, PDO::PARAM_INT);
+    }
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
