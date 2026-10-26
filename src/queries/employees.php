@@ -2,7 +2,8 @@
 // 社員（employees テーブル）を読み書きする関数
 
 // 社員 ID で、社員の氏名と部署名を取得する（ヘッダーの表示に使う）
-// 戻り値：['employee_id' => '2025001', 'name' => '山田 太郎', 'department_name' => '営業部', 'joined_on' => '2025-04-01', 'department_id' => 1]。見つからなければ null
+// 戻り値：['employee_id' => '2025001', 'name' => '山田 太郎', 'department_name' => '営業部', 'joined_on' => '2025-04-01', 'department_id' => 1, 'employment_status' => 'active']。見つからなければ null
+// TODO（依頼者・PR 10）：取得する列に、在籍状態 e.employment_status を追加する（社員の勤怠の詳細で、退職した社員を出さないための判断に使う）
 // TODO（依頼者・PR 4）：取得する列に、入社日 e.joined_on を追加する（記録表示で、前の月へ戻れる範囲に使う）
 // TODO（依頼者・PR 6）：取得する列に、部署 ID e.department_id を追加する（承認範囲が「部署」の管理者の、部署の判断に使う）
 function fetchEmployeeProfile(PDO $pdo, string $employeeId): ?array {
@@ -83,4 +84,30 @@ function updateEmploymentStatus(PDO $pdo, string $employeeId, string $status, ?s
     $stmt->bindValue(':left_on', $leftOn, PDO::PARAM_STR);
     $stmt->bindValue(':employee_id', $employeeId, PDO::PARAM_STR);
     $stmt->execute();
+}
+
+// ---- PR 10（社員の勤怠）：管理者が見る、対象社員の一覧 ----
+
+// 対象社員と、その日の勤怠を取得する（社員の勤怠の一覧。D-070）
+// 対象：在籍中（employment_status = 'active'）で、自分（$managerId）以外。$departmentId が null でなければ、その部署の社員だけ
+// $departmentId：承認範囲が「部署」なら管理者の部署 ID、「全社」なら null（approvalDepartmentId() の値）。$workDate：'2026-10-26'
+// 戻り値：[['employee_id' => '2025001', 'name' => '山田 太郎', 'department_name' => '営業部', 'check_in_at' => '2026-10-26 09:01:00', 'check_out_at' => null, 'break_start_at' => null, 'break_end_at' => null], …]
+// 打刻していない社員も入る（勤怠の4つの列が null）。対象社員がいなければ []
+function fetchMemberAttendances(PDO $pdo, string $managerId, ?int $departmentId, string $workDate): array {
+    // TODO（依頼者）：社員・部署を JOIN し、その日の勤怠を LEFT JOIN して取得する
+    // 1. SQL を書く：
+    //    SELECT e.employee_id, e.name, d.name AS department_name,
+    //      a.check_in_at, a.check_out_at, a.break_start_at, a.break_end_at
+    //    FROM employees e
+    //    JOIN departments d ON d.id = e.department_id
+    //    LEFT JOIN attendances a ON a.employee_id = e.employee_id AND a.work_date = :work_date
+    //    WHERE e.employment_status = 'active' AND e.employee_id <> :manager_id
+    //    ※ 日付の条件（a.work_date = :work_date）は、WHERE ではなく ON に書く
+    //      （WHERE に書くと、勤怠の行が無い＝打刻していない社員が、一覧から消える）
+    // 2. $departmentId が null でなければ、WHERE の後ろに AND e.department_id = :department_id を付け足す
+    //    （fetchPendingRequests() と同じ書き方。値は文字列でつながず、プレースホルダで渡す）
+    // 3. 最後に ORDER BY d.id, e.employee_id を付ける（部署の作成順 → 社員コードの順）
+    // 4. prepare → bindValue（:work_date と :manager_id は PDO::PARAM_STR、:department_id は付け足したときだけ PDO::PARAM_INT）→ execute
+    // 5. fetchAll() の結果を返す
+    throw new RuntimeException('fetchMemberAttendances は未実装です');
 }
