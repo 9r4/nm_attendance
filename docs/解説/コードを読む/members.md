@@ -12,7 +12,7 @@
 - 対象社員は**承認範囲と同じ**（自分の部署／全社。D-025）。**自分**と**退職した社員**は出さない。
 - 2つとも、判断と表示の組み立ては `src/members.php` に、SQL は `src/queries/employees.php` に任せる。このファイルは「集めて並べる」だけ（[approvals_index.md](./approvals_index.md) と同じ形）。
 - 詳細のカレンダーは、記録表示の部品 `templates/calendar.php` を**そのまま使い回す**（[templates.md](./templates.md) の4章）。
-- 一覧の取得の SQL（`fetchMemberAttendances()`）は**依頼者が書く関数**で、今は枠（処理の流れのコメントだけ）。書き終わるまでは、一覧を開くと例外になり、想定外のエラーの画面になる（[src_errors.md](./src_errors.md)）。
+- 一覧の取得の SQL（`fetchMemberAttendances()`）と、詳細で使う在籍状態の列（`fetchEmployeeProfile()` の `e.employment_status`）は、**依頼者が書いた**（DB まわりは依頼者の担当）。
 
 ## 全体の構成
 
@@ -82,7 +82,7 @@ $members = array_map(fn ($row) => memberRowView($row, $today, $settings), $rows)
 ```
 
 - `fetchWorkSettings()`：勤務設定。労働時間の計算で、昼休憩（`lunch_start`・`lunch_end`）を引くために使う。
-- `fetchMemberAttendances()`（`src/queries/employees.php`。**依頼者が書く**）：対象社員と、その日（`$today`）の勤怠を、1人1行で返す。打刻していない社員も入る（勤怠の列が `null`）。中身は [src_queries_employees_login_accounts.md](./src_queries_employees_login_accounts.md) の6章。
+- `fetchMemberAttendances()`（`src/queries/employees.php`。依頼者が書いた）：対象社員と、その日（`$today`）の勤怠を、1人1行で返す。打刻していない社員も入る（勤怠の列が `null`）。中身は [src_queries_employees_login_accounts.md](./src_queries_employees_login_accounts.md) の6章。
   - 2つ目の引数（管理者の社員 ID）：**自分を除く**ため。
   - 3つ目の引数 `approvalDepartmentId($currentUser)`：承認範囲が「部署」なら管理者の部署 ID、「全社」なら `null`。承認画面の一覧と**同じ関数**で、同じ範囲にしている（[src_approvals.md](./src_approvals.md) の2章）。
 - `array_map()` とアロー関数 `fn ($row) => …`：DB の1行ずつを、`memberRowView()` で**画面用の形**（`'statusLabel'`・`'checkIn'`・`'workTime'` など）にする。アロー関数の中では、外側の `$today`・`$settings` をそのまま使える。
@@ -182,13 +182,13 @@ if ($member === null || !canViewMember($currentUser, $member)) {
 
 - 読み込みと権限の確認は、一覧と同じ（管理者でなければ 403）。
 - `is_string()`：`?id[]=2025001` のように送られると、`$_GET['id']` は配列になる。文字列のときだけ受け取り、それ以外は `''`（無し）にする（記録表示の `month` と同じ書き方）。
-- `fetchEmployeeProfile()`：社員 ID で、氏名・部署名・入社日・部署 ID・**在籍状態**を読む。見つからなければ `null`。ヘッダーの表示にも使っている関数で、PR 10 で在籍状態（`e.employment_status`）の列を足す（**依頼者が書く**。[src_queries_employees_login_accounts.md](./src_queries_employees_login_accounts.md) の2章）。
+- `fetchEmployeeProfile()`：社員 ID で、氏名・部署名・入社日・部署 ID・**在籍状態**を読む。見つからなければ `null`。ヘッダーの表示にも使っている関数で、PR 10 で依頼者が在籍状態（`e.employment_status`）の列を足した（[src_queries_employees_login_accounts.md](./src_queries_employees_login_accounts.md) の2章）。
 - `canViewMember()`（`src/members.php`）：この管理者が、この社員を見てよいか。一覧に出す条件（管理者・自分でない・在籍中・承認範囲）と同じ。
 - だめなら `abort(404, MEMBER_NOT_VIEWABLE_MESSAGE)`：404 と「この社員の勤怠は表示できません。」で止める。
 
 > **ここが重要**：「詳細」のリンクは一覧に出た社員にしか無いが、URL の `id` は**ブラウザで誰でも書き換えられる**。だから詳細の画面でも、**一覧と同じ条件をもう一度確かめる**（承認の API が `canReview()` で確かめ直すのと同じ）。断るときは、ほかの部署の社員・存在しない社員 ID・自分・退職した社員の**どれも同じ 404 と同じ文**にする。理由を分けて返すと、「この社員 ID は存在する」「この人は退職した」ことが、範囲の外の管理者に分かってしまう。
 
-> **補足**：依頼者が `fetchEmployeeProfile()` に在籍状態の列を足すまでは、`$member` に `employment_status` が無い。`canViewMember()` は「在籍状態が分からないときは見せない」作りなので、その間は**だれの詳細も 404 になる**（見せすぎる側には倒れない。[src_members.md](./src_members.md) の2章）。
+> **補足**：もし `fetchEmployeeProfile()` が在籍状態の列を返さなかったら（列を取り忘れた、など）、`$member` に `employment_status` が無い。`canViewMember()` は「在籍状態が分からないときは見せない」作りなので、そのときは**だれの詳細も 404 になる**（見せすぎる側には倒れない。[src_members.md](./src_members.md) の2章）。
 
 ```php
 if ($member['joined_on'] === null) {
