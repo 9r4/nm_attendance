@@ -7,6 +7,7 @@
 - 計算（表示する月・労働時間・カレンダーのセル）は `src/records.php` に任せる。このファイルは「値を集めて、HTML に並べる」だけ。
 - 日付を押したときに見せる値は、ページを作るときに JSON にして HTML に埋め込んでおく。JavaScript はそれを読んで表示するだけで、サーバーに問い合わせない。
 - 申請と取り消しは、JavaScript が `api/requests.php` に送る。このファイルは、そのためのウィンドウ（`<dialog>`）の HTML を用意しておく。
+- 月の切り替え・集計・カレンダー・その日の記録のウィンドウの HTML は、部品 `templates/calendar.php` にある。PR 10 で、社員の勤怠の詳細（`members/detail.php`）と共有するために、このファイルから移した（[templates.md](./templates.md) の4章）。このファイルは、部品が使う変数を用意してから読み込む。
 
 ## 全体の構成
 
@@ -15,10 +16,11 @@
 | 先頭（4〜8行） | 使うファイルの読み込み |
 | 10〜14行 | ログインと権限の確認 |
 | 16〜22行 | 表示する月を決め、勤怠・申請・勤務設定を読み、カレンダーを組み立てる |
-| 24〜35行 | JavaScript に渡す「日ごとの値」（`$days`）を作る |
-| 37〜39行 | 「申請」ボタンで選べる日の範囲 |
-| 41〜122行 | HTML：通知・月の切り替え・集計・カレンダー |
-| 124〜192行 | HTML：3つのウィンドウ（その日の記録／取り消しの確認／申請） |
+| 24〜25行 | JavaScript に渡す「日ごとの値」（`$days`）を作る（`calendarDays()`） |
+| 27〜29行 | 「申請」ボタンで選べる日の範囲 |
+| 34〜39行 | HTML：通知 |
+| 41〜46行 | カレンダーの部品（`templates/calendar.php`）を読み込む：月の切り替え・集計・カレンダー・その日の記録のウィンドウ |
+| 48〜92行 | HTML：2つのウィンドウ（取り消しの確認／申請） |
 | 最後 | `js/records.js` の読み込み |
 
 前半の PHP で**値を全部そろえてから**、後半で HTML を出す。HTML の途中で DB を読んだり計算したりしない。
@@ -30,9 +32,10 @@ flowchart LR
     A[URL の month] --> B[resolveMonth で月を決める]
     B --> C[その月の勤怠と申請を読む]
     C --> D[buildCalendar でセルを作る]
-    D --> E[カレンダーの HTML]
-    D --> F[$days を JSON にして data-days へ]
-    F --> G[js/records.js が読む]
+    D --> F["calendarDays で $days を作る"]
+    D --> E["templates/calendar.php がカレンダーの HTML を出す"]
+    F --> E
+    E --> G["data-days を js/records.js が読む"]
 ```
 
 ---
@@ -92,23 +95,13 @@ $flash = takeFlash();
 ## 4. JavaScript に渡す「日ごとの値」を作る
 
 ```php
-$days = [];
-foreach ($calendar['weeks'] as $week) {
-    foreach ($week as $cell) {
-        if ($cell !== null) {
-            $days[$cell['date']] = array_intersect_key($cell, array_flip([
-                'label', 'holiday', 'hasRecord', 'checkIn', 'checkOut', 'break', 'workTime',
-                'values', 'requests', 'isFuture', 'pendingCorrection', 'canRequest',
-            ]));
-        }
-    }
-}
+// 日付を押したときに表示する、その日の記録と申請（js/records.js が使う）
+$days = calendarDays($calendar);
 ```
 
-- `$calendar['weeks']` は「週の配列」で、1週は7つのセル（日〜土）。月の外の日は `null` なので飛ばす。
-- 日付（`'2026-09-01'`）をキーにした配列にする。JavaScript では `days['2026-09-01']` で、その日の値をすぐに取り出せる。
-- `array_flip([...])`：値とキーを入れ替える。`['label', 'holiday', …]` が `['label' => 0, 'holiday' => 1, …]` になる。
-- `array_intersect_key($cell, …)`：`$cell` のうち、**キーが一覧にあるものだけ**を残す。2つを組み合わせると「必要なキーだけ取り出す」ことができる。
+- `calendarDays()`（`src/records.php`）：カレンダーのセルから、JavaScript に要るキーだけを取り出し、日付（`'2026-09-01'`）をキーにした配列にする。JavaScript では `days['2026-09-01']` で、その日の値をすぐに取り出せる。
+- PR 10 までは、この画面の中に `foreach` と `array_intersect_key()` で直接書いていた。社員の勤怠の詳細でも同じものが要るので、関数にして `src/records.php` へ移した（中身は [src_records.md](./src_records.md) の6章）。
+- 2つ目の引数（見るだけか）を渡していないので、既定値の `false` になる。申請できる日・申請中の案内・取り消しのボタンは、今までどおり出る。
 
 例えば、1日分は次のような形になる（記録がある日）。
 
@@ -121,7 +114,7 @@ foreach ($calendar['weeks'] as $week) {
 ]
 ```
 
-> **ここが重要**：セルには、HTML を作るためだけの値（`weekday`・`isRestDay`・`isToday`・`badge` など）も入っている。JavaScript に要らない値は、**渡す前に落とす**。HTML が小さくなるうえ、「JavaScript に何を渡しているか」が、この一覧を見れば分かる。（なお、一覧の `isFuture` は、今の `js/records.js` では使っていない。未来の日は `canRequest` が `false` になるので、それで足りている。）
+> **ここが重要**：セルには、HTML を作るためだけの値（`weekday`・`isRestDay`・`isToday`・`badge` など）も入っている。JavaScript に要らない値は、**渡す前に落とす**（`calendarDays()` の中の、キーの一覧）。HTML が小さくなるうえ、「JavaScript に何を渡しているか」が、その一覧を見れば分かる。（なお、一覧の `isFuture` は、今の `js/records.js` では使っていない。未来の日は `canRequest` が `false` になるので、それで足りている。）
 
 ## 5. 「申請」ボタンで選べる日
 
@@ -133,7 +126,7 @@ $requestMax = min($month['last'], $today);
 - 選べるのは「表示中の月の日」で、かつ「入社日から今日まで」の日（D-062）。2つの範囲の重なりを、`max`（遅いほうの始まり）と `min`（早いほうの終わり）で求めている。
 - `'Y-m-d'` の文字列は、文字列の大小と日付の前後が一致するので、`max()`・`min()` でそのまま比べられる。
 - 例：今日が 2026-10-15、入社日が 2025-04-01 で、10月を表示しているとき → `2026-10-01`〜`2026-10-15`。
-- この2つの値は、下の HTML で「申請」ボタンを出すかどうかと、日付の入力欄の `min`・`max` に使う。
+- この2つの値は、カレンダーの部品で「申請」ボタンを出すかどうかと、下の申請ウィンドウの日付の入力欄の `min`・`max` に使う。
 
 ---
 
@@ -154,147 +147,44 @@ $requestMax = min($month['last'], $today);
 - `role="status"`・`aria-live="polite"`：画面読み上げソフトに、「ここに出た文を読み上げる」と伝える。
 - `<?= h($flash) ?>`：`<?= … ?>` は `<?php echo … ?>` の短い形。**画面に出す値は、必ず `h()` を通す**（`htmlspecialchars()` で `<` などを無害な文字に変える。XSS 対策）。
 
-## 7. 月の切り替えと集計
+## 7. カレンダーの部品を読み込む
 
 ```php
-            <?php if ($month['prev'] !== null): ?>
-                <a class="month-nav__button" href="?month=<?= h($month['prev']) ?>" aria-label="前の月"><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></a>
-            <?php else: ?>
-                <span class="month-nav__button month-nav__button--disabled" aria-hidden="true"><span class="material-symbols-outlined">chevron_left</span></span>
-            <?php endif; ?>
-            <h1 class="month-nav__label"><?= h($month['label']) ?></h1>
+    <?php
+    $monthQuery = '?';
+    $monthHeading = 'h1';
+    $readOnly = false;
+    include(__DIR__ . '/../templates/calendar.php');
+    ?>
 ```
 
-- 前の月に行けるときはリンク（`<a>`）、行けないとき（入社した月）は、押せない見た目の `<span>` を出す。`next` も同じで、今月より先には行けない。
-- `href="?month=2026-08"` のように `?` から始まる URL は、「今のページのまま、後ろの `?…` だけ変える」という意味になる。
-- `chevron_left` は、Google のアイコンフォント（Material Symbols）の名前。文字がアイコンの形で表示される。`aria-hidden="true"` で読み上げから外し、代わりに `aria-label="前の月"` を読ませる。
+- `templates/calendar.php` は、`include` した画面の変数をそのまま使う部品（`templates/header.php` と同じ受け渡しのしかた）。読み込む前に、部品が使う変数を用意しておく。
 
-```php
-            <span class="summary__item">出勤日数 <b id="summary-days"><?= h($calendar['workDays']) ?>日</b></span>
-            <span class="summary__item">総労働時間 <b id="summary-total"><?= h(formatMinutes($calendar['totalMinutes'])) ?></b></span>
-```
-
-- 出勤日数と総労働時間（表示中の月の合計。D-049）。`formatMinutes()` で、分を `160時間30分` の形にする。数え方は [src_records.md](./src_records.md) で説明する。
-
-```php
-        <?php if ($requestMin <= $requestMax): ?>
-            <button class="button button--primary records__request" type="button" id="request-open">申請</button>
-        <?php endif; ?>
-```
-
-- 日付を選ばずに開く「申請」ボタン（D-052）。選べる日が1日も無いとき（例：入社日がまだ来ていない）は出さない。
-
-## 8. カレンダー本体
-
-```php
-    <div class="calendar" id="calendar"
-        data-days="<?= h(json_encode($days, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) ?>"
-        data-api-url="<?= h(appUrl('api/requests.php')) ?>"
-        data-login-url="<?= h(appUrl('login.php')) ?>"
-        data-csrf-token="<?= h(csrfToken()) ?>">
-```
-
-- `data-…` 属性は、HTML に好きな値を持たせる仕組み。JavaScript からは `calendar.dataset.days`・`calendar.dataset.apiUrl` のように読める（`data-api-url` は `apiUrl` という名前になる）。
-- `json_encode()`：PHP の配列を JSON の文字列にする。
-  - `JSON_UNESCAPED_UNICODE`：日本語を `\u65e5` のような記号の形（エスケープ）にせず、`日` のまま出す（HTML が読みやすく、小さくなる）。
-  - `JSON_THROW_ON_ERROR`：変換に失敗したら例外にする。これが無いと、失敗したときに `false` が返り、空の属性になって、JavaScript 側で原因の分からないエラーになる。
-- JSON を `h()` に通してから属性に入れている。JSON には `"` が入るので、そのままだと属性が途中で切れてしまう。`h()` で `&quot;` に変えておくと、ブラウザが属性を読むときに元の `"` に戻すので、`dataset.days` では元の JSON がそのまま取り出せる。
-- `data-csrf-token`：申請を送るときに付ける CSRF トークン（推測できない文字列）。サーバーは、トークンが正しくない POST を受け付けない。別のサイトから勝手に申請を送らせる攻撃（CSRF）を防ぐ。
-- API とログイン画面の URL も `appUrl()` で作って渡す。アプリを置いた場所（`/attendance/` など）が変わっても、JavaScript を直さなくてよい。
-
-> **ここが重要**：PHP から JavaScript に値を渡すとき、`<script>` の中に `var days = <?= json_encode(...) ?>;` と直接書く方法もあるが、ここでは **`data-` 属性 ＋ `h()`** にしている。属性に入れる値は `h()` だけで安全にできるので、エスケープの考え方が「画面に出す値は `h()`」の1つで済む。JavaScript を別ファイル（`js/records.js`）に分けたままにできる良さもある。
-
-```php
-        <div class="calendar__head" aria-hidden="true">
-            <?php foreach (['日', '月', '火', '水', '木', '金', '土'] as $i => $weekdayName): ?>
-                <div class="calendar__weekday calendar__weekday--<?= h($i) ?>"><?= h($weekdayName) ?></div>
-            <?php endforeach; ?>
-        </div>
-```
-
-- 曜日の見出し。`as $i => $weekdayName` で、番号（0〜6）と名前の両方を受け取り、番号をクラス名（`calendar__weekday--0` など）に使う。
-
-```php
-        <?php foreach ($calendar['weeks'] as $week): ?>
-            <div class="calendar__week">
-                <?php foreach ($week as $cell): ?>
-                    <?php if ($cell === null): ?>
-                        <div class="calendar__blank"></div>
-                    <?php else: ?>
-```
-
-- 週ごと・セルごとの二重の `foreach`。月の外の日（`null`）は空の箱にする。セルの並べ方は `buildCalendar()` が決めているので、ここは順に出すだけ。
-
-```php
-                        <?php
-                        $classes = ['calendar__day'];
-                        if ($cell['isRestDay']) {
-                            $classes[] = 'calendar__day--rest';
-                        }
-                        if ($cell['isToday']) {
-                            $classes[] = 'calendar__day--today';
-                        }
-                        $dateClass = ($cell['weekday'] === 0 || $cell['holiday'] !== '') ? ' calendar__date--sunday' : ($cell['weekday'] === 6 ? ' calendar__date--saturday' : '');
-                        $ariaLabel = $cell['label'] . ($cell['holiday'] !== '' ? ' ' . $cell['holiday'] : '') . ($cell['badge'] !== null ? ' ' . $cell['badgeLabel'] : '') . 'の記録';
-                        ?>
-```
-
-- クラス名を配列に集めて、あとで `implode(' ', $classes)` で空白区切りにする。条件が増えても、`$classes[] = …` を足すだけでよい。
-- 休日（土日・祝日）は `--rest`、今日は `--today` を付ける。
-- 日付の数字の色：日曜と祝日は赤（`--sunday`）、土曜は青（`--saturday`）。
-- 三項演算子（`条件 ? A : B`）を2つ重ねている。**PHP 8 では、三項演算子を重ねるときに `( )` が必須**（付けないとエラー）。どちらを先に判断するかが、読む人にもはっきりする。
-- `$ariaLabel`：画面読み上げ用の名前。例えば `9月21日（月） 敬老の日 申請中の記録`。見た目では色や小さな文字で伝えていることを、言葉でも伝える。
-
-```php
-                        <button class="<?= h(implode(' ', $classes)) ?>" type="button" data-date="<?= h($cell['date']) ?>" aria-label="<?= h($ariaLabel) ?>"<?= $cell['isToday'] ? ' aria-current="date"' : '' ?>>
-```
-
-- 1日を1つの `<button>` にする。押せる部品をボタンにしておくと、キーボード（Tab と Enter）でも操作できる。
-- `data-date="2026-09-01"`：どの日が押されたかを、JavaScript がこの属性で知る。上の `$days` のキーと同じ形。
-- `aria-current="date"`：今日のセルであることを伝える。固定の文字列なので `h()` は通していない。
-
-```php
-                            <?php if ($cell['hasRecord']): ?>
-                                <span class="calendar__times">
-                                    <span><span class="calendar__mark">出</span> <?= h($cell['checkIn']) ?></span>
-                                    <span><span class="calendar__mark">退</span> <?= h($cell['checkOut']) ?></span>
-                                </span>
-                            <?php endif; ?>
-                            <?php if ($cell['badge'] !== null): ?>
-                                <span class="request-badge request-badge--<?= h($cell['badge']) ?>"><?= h($cell['badgeLabel']) ?></span>
-                            <?php endif; ?>
-```
-
-- 記録がある日は、出勤・退勤の時刻を出す。無い時刻は `--:--`（`formatClock()` が作る）。
-- 申請がある日は、状態のバッジ（申請中・承認済み・却下）を出す。`badge` は `pending` などで、クラス名（`request-badge--pending`）で色を変える。
-
-## 9. 3つのウィンドウ（`<dialog>`）
-
-画面には、最初から3つのウィンドウを隠して置いておく。開く・閉じる・中身を入れるのは `js/records.js`。
-
-| id | 中身 | 開くとき |
+| 変数 | この画面の値 | 意味 |
 | --- | --- | --- |
-| `day-dialog` | その日の記録と申請の一覧、「修正」または「申請する」ボタン | 日付を押したとき |
-| `cancel-dialog` | 申請の取り消しの確認（D-063） | 一覧の「取り消す」を押したとき |
-| `request-dialog` | 修正・新規登録の申請の入力欄 | 「修正」「申請する」「申請」を押したとき、記録も申請も無い日を押したとき |
+| `$month`・`$calendar`・`$days` | 3章・4章で作った値 | 表示する月、カレンダーのセル、日ごとの値 |
+| `$monthQuery` | `'?'` | 月の切り替えのリンクの、`month=` より前の部分。前の月のリンクは `?month=2026-08` になる（社員の勤怠の詳細は `'?id=2025001&'`） |
+| `$monthHeading` | `'h1'` | 月の見出し（「2026年10月」）のタグ。この画面では月がいちばん大きい見出しなので `<h1>` |
+| `$readOnly` | `false` | 見るだけではない。「申請」ボタン、申請の API の URL・CSRF トークンを出す |
+| `$requestMin`・`$requestMax` | 5章の値 | 「申請」ボタンを出すか（選べる日が1日でもあるか） |
 
-```php
-    <dialog class="dialog" id="day-dialog" aria-labelledby="day-title">
-        <form method="dialog" class="dialog__body">
-            <h2 class="dialog__title" id="day-title"></h2>
-            …
-            <div class="dialog__actions">
-                <button class="button button--outline" type="submit" value="close">閉じる</button>
-                <button class="button button--primary" type="button" id="day-request" hidden></button>
-            </div>
-        </form>
-    </dialog>
-```
+- 部品が出すもの：月の切り替えと出勤日数・総労働時間、「申請」ボタン、カレンダー本体（`#calendar`。`data-days` などの `data-*` 属性つき）、その日の記録と申請のウィンドウ（`#day-dialog`）。1行ずつの説明は [templates.md](./templates.md) の4章。
+- PR 10 で部品に移したとき、出す HTML は**1文字も変えていない**（`$monthQuery`・`$monthHeading`・`$readOnly` の値を、この画面の今までの形に合わせている）。記録表示の見た目と動きが変わっていないことは、前の PR のブラウザの確認（`pr4.js`・`pr5.js`・`pr5補足.js` など）を流し直して確かめた。
 
-- `<dialog>` は、HTML に標準で用意されたウィンドウ。JavaScript の `showModal()` で開くと、後ろの画面は押せなくなり、Esc キーで閉じられる。
-- `aria-labelledby="day-title"`：ウィンドウの名前は、`id="day-title"` の見出しだと伝える。
-- **`<form method="dialog">`**：この中の送信ボタン（`type="submit"`）を押すと、サーバーには何も送らずに、ウィンドウが閉じる。「閉じる」ボタンには JavaScript が要らない。
-- 見出しや時刻の欄（`day-check-in` など）は空で置いておき、日付を押したときに JavaScript が中身を入れる。
+> **ここが重要**：同じ HTML を2つの画面に写すと、片方だけ直して、もう片方を直し忘れることが起きる。**部品（テンプレート）にして、違うところだけを変数で渡す**と、カレンダーの見た目を直すときは `templates/calendar.php` の1か所だけでよい。違いを変数に出すときは、「何が違うのか」（リンクの前半・見出しのタグ・見るだけか）を小さくまとめておくと、部品が読みやすい。
+
+## 8. 2つのウィンドウ（`<dialog>`）
+
+画面には、ウィンドウを隠して置いておく。開く・閉じる・中身を入れるのは `js/records.js`。
+
+| id | 置き場所 | 中身 | 開くとき |
+| --- | --- | --- | --- |
+| `day-dialog` | `templates/calendar.php` | その日の記録と申請の一覧、「修正」または「申請する」ボタン | 日付を押したとき |
+| `cancel-dialog` | このファイル | 申請の取り消しの確認（D-063） | 一覧の「取り消す」を押したとき |
+| `request-dialog` | このファイル | 修正・新規登録の申請の入力欄 | 「修正」「申請する」「申請」を押したとき、記録も申請も無い日を押したとき |
+
+- その日の記録のウィンドウは、見るだけの画面でも使うので部品の中にある。取り消しの確認と申請ウィンドウは、**自分の記録を直す画面（ここ）だけ**のものなので、このファイルに残している。社員の勤怠の詳細には、そもそも出ない。
+- `<dialog>`（HTML の標準のウィンドウ）と `<form method="dialog">` の説明は、[templates.md](./templates.md) の4章（その日の記録のウィンドウ）。
 
 ```php
         <form class="dialog__body" id="request-form" novalidate>
@@ -326,7 +216,7 @@ $requestMax = min($month['last'], $today);
 
 > **ここが重要**：画面の `min`・`max`・`maxlength` は、**使いやすさのためだけ**。開発者ツールで HTML を書き換えれば、いくらでも外せる。だから、対象日の範囲・時刻の順番・文字数などは、すべてサーバー（`validateCorrection()`）で確かめ直している。画面とサーバーで数字がずれないように、上限は定数を共有している。
 
-## 10. JavaScript の読み込み
+## 9. JavaScript の読み込み
 
 ```php
 <script src="<?= h(assetUrl('js/records.js')) ?>" defer></script>
@@ -347,13 +237,15 @@ $requestMax = min($month['last'], $today);
 | URL の値はホワイトリストで受け取る | `is_string()` と `resolveMonth()`。ほかは今月 |
 | まとめて読む | 勤怠と申請を、月の分まとめて1回ずつ読む |
 | JavaScript には必要な値だけ渡す | `array_intersect_key()` で、使うキーだけ残す |
-| PHP → JavaScript は `data-` 属性で | `json_encode()` ＋ `h()` で、安全に埋め込む |
+| PHP → JavaScript は `data-` 属性で | `json_encode()` ＋ `h()` で、安全に埋め込む（部品 `templates/calendar.php` の中） |
+| 同じ HTML は部品にして、違いを変数で渡す | `templates/calendar.php` に `$monthQuery`・`$monthHeading`・`$readOnly` |
 | 画面の制限はサーバーで確かめ直す | `min`・`max`・`maxlength` は使いやすさのため |
-| HTML の標準の部品を使う | `<dialog>`・`<form method="dialog">`・日付と時刻の入力欄 |
+| HTML の標準の部品を使う | `<dialog>`・日付と時刻の入力欄 |
 
 ## 関連するファイル
 
-- 計算：`src/records.php`（`resolveMonth()`・`buildCalendar()`・`formatMinutes()`） → [src_records.md](./src_records.md)
+- 計算：`src/records.php`（`resolveMonth()`・`buildCalendar()`・`formatMinutes()`・`calendarDays()`） → [src_records.md](./src_records.md)
+- カレンダーの部品：`templates/calendar.php` → [templates.md](./templates.md) の4章。同じ部品を見るだけで使う画面：`members/detail.php` → [members.md](./members.md)
 - 祝日：`src/holidays.php` → [src_holidays.md](./src_holidays.md)
 - 画面の動き：`js/records.js`（`data-days` を読んで、ウィンドウを開く・申請を送る） → [js_records.md](./js_records.md)
 - 申請の受け口：`api/requests.php` → [api_requests.md](./api_requests.md)、入力のルール：`src/requests.php` → [src_requests.md](./src_requests.md)

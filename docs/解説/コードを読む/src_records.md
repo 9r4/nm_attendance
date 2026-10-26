@@ -2,7 +2,7 @@
 
 ## このファイルの役割
 
-記録表示の画面（`records/index.php`）のために、**「どの月を出すか」「1日に何分働いたか」「カレンダーのセルに何を出すか」を計算する**ファイル。
+記録表示の画面（`records/index.php`）のために、**「どの月を出すか」「1日に何分働いたか」「カレンダーのセルに何を出すか」を計算する**ファイル。社員の勤怠（PR 10）の詳細（`members/detail.php`）と一覧（`src/members.php`）も、同じ関数を使う。
 
 - HTML は出さない。SQL も書かない。DB から読んだ行（配列）と、今日の日付・入社日などを受け取って、答えを返すだけ。
 - そのため、DB が無くてもテストできる（`tests/RecordsTest.php`）。月の決め方、労働時間の計算、カレンダーの組み立てを、いろいろな値で確かめている。
@@ -16,8 +16,9 @@
 | `dailyWorkMinutes()` | 1日の労働時間（分）を計算する |
 | `formatMinutes()` | 分を「○時間○分」にする |
 | `buildCalendar()` | 月カレンダーのセル、出勤日数、総労働時間を作る |
+| `calendarDays()` | 日付を押したときに JavaScript が見せる、日ごとの値を取り出す（PR 10 で `records/index.php` から移した） |
 
-上の3つが部品で、最後の `buildCalendar()` が、部品とほかのファイルの関数を組み合わせて、画面に出す値を全部作る。
+上の3つが部品で、`buildCalendar()` が、部品とほかのファイルの関数を組み合わせて、画面に出す値を全部作る。最後の `calendarDays()` は、その結果から JavaScript に渡す分だけを取り出す。
 
 ---
 
@@ -368,6 +369,58 @@ function buildCalendar(array $month, array $attendances, array $settings, string
 
 例：2026年9月は、1日が火曜日。前の空きが2つ、日が30個で32個。7の倍数にするために3つ足して35個、`array_chunk` で**5週**になる。1週目は `[null, null, 9/1, 9/2, 9/3, 9/4, 9/5]`、5週目は `[9/27, 9/28, 9/29, 9/30, null, null, null]`。
 
+## 6. `calendarDays()`：JavaScript に渡す「日ごとの値」を取り出す
+
+```php
+// 日付を押したときに表示する、その日の記録と申請（js/records.js が使う。画面に data-days で埋め込む）
+// $calendar：buildCalendar() の戻り値。戻り値：日付（'2026-10-15'）ごとの値
+// $readOnly：見るだけ（社員の勤怠の詳細。D-070）なら、申請・修正・取り消しのボタンと、申請中の案内を出さないようにする
+function calendarDays(array $calendar, bool $readOnly = false): array {
+    $days = [];
+    foreach ($calendar['weeks'] as $week) {
+        foreach ($week as $cell) {
+            if ($cell === null) {
+                continue;
+            }
+            $day = array_intersect_key($cell, array_flip([
+                'label', 'holiday', 'hasRecord', 'checkIn', 'checkOut', 'break', 'workTime',
+                'values', 'requests', 'isFuture', 'pendingCorrection', 'canRequest',
+            ]));
+```
+
+- もとは `records/index.php` の中に書いてあった処理。社員の勤怠の詳細（`members/detail.php`）でも同じものが要るので、PR 10 で関数にしてここへ移した。**同じ処理を2つの画面に写さず、1つの関数を2か所から呼ぶ**。
+- `$calendar['weeks']` は「週の配列」で、1週は7つのセル。月の外の日は `null` なので、`continue` で飛ばす（次のセルへ進む）。
+- 日付（`'2026-09-01'`）をキーにした配列にする。JavaScript では `days['2026-09-01']` で、その日の値をすぐに取り出せる。
+- `array_flip([...])`：値とキーを入れ替える。`['label', 'holiday', …]` が `['label' => 0, 'holiday' => 1, …]` になる。
+- `array_intersect_key($cell, …)`：`$cell` のうち、**キーが一覧にあるものだけ**を残す。2つを組み合わせると「必要なキーだけ取り出す」ことができる。セルには、HTML を作るためだけの値（`weekday`・`isRestDay`・`isToday`・`badge` など）も入っているが、JavaScript には要らないので落とす。
+- `$readOnly` の `= false`：引数の**既定値**。記録表示は `calendarDays($calendar)` と1つだけ渡し、今までどおりの値になる。見るだけの画面は `calendarDays($calendar, true)` と呼ぶ。
+
+```php
+            if ($readOnly) {
+                $day['canRequest'] = false;
+                $day['pendingCorrection'] = false;
+                $day['requests'] = array_map(fn ($request) => array_replace($request, ['canCancel' => false]), $day['requests']);
+            }
+            $days[$cell['date']] = $day;
+        }
+    }
+    return $days;
+}
+```
+
+- 見るだけのときは、`js/records.js` がボタンや案内を出すかどうかに使う3つの値を、全部 `false` にする。
+
+| キー | 記録表示での意味 | 見るだけのとき |
+| --- | --- | --- |
+| `canRequest` | 「修正」「申請する」のボタンを出すか | `false`（出さない） |
+| `pendingCorrection` | 「申請中のため、新しい申請はできません。…」の案内を出すか | `false`（出さない。見る人には関係ない案内のため） |
+| `requests` の各 `canCancel` | 申請の「取り消す」ボタンを出すか | `false`（出さない） |
+
+- `array_replace($request, ['canCancel' => false])`：`$request` の配列をもとに、`canCancel` だけを `false` に変えた**新しい配列**を返す（ほかのキーはそのまま）。それを `array_map()` で申請の1件ずつに当てる。
+- 記録（時刻・労働時間）と申請の中身（変わった項目・理由・却下コメント）は、そのまま残す。見るだけでも、その日に何があったかは全部見られる。
+
+> **ここが重要**：「見るだけ」を、JavaScript の側で `if (readOnly)` を何か所も書いて隠すのではなく、**渡す値の段階で `false` にしている**。`js/records.js` は今までどおり「`canRequest` が `false` ならボタンを隠す」と動くだけなので、記録表示とほぼ同じコードのまま、見るだけの画面になる。判断は PHP の1か所（ここ）にあり、テスト（`tests/MembersTest.php` の `testCalendarDaysReadOnly()`）で、記録表示の値は変わらないこと、見るだけでは3つが全部 `false` になることを確かめている。
+
 ---
 
 ## まとめ：このファイルから学べること
@@ -384,14 +437,16 @@ function buildCalendar(array $month, array $attendances, array $settings, string
 | 表示の作り方は共有する | `attendanceView()`・`formatClock()`・`requestView()` を使い回す |
 | 判断は PHP で済ませる | `canRequest`・`workTime` をセルに入れて渡す |
 | DB を使わない関数に分ける | 配列を受け取るだけなので、`tests/RecordsTest.php` でテストできる |
+| 必要なキーだけ渡す | `calendarDays()` の `array_intersect_key()` と `array_flip()` |
+| 2つの画面で使う処理は関数にする | `calendarDays()` を記録表示と社員の勤怠の詳細から呼ぶ。違いは引数 `$readOnly` だけ |
 
 ## 関連するファイル
 
-- 呼ぶ側：`records/index.php`（記録表示の画面） → [records_index.md](./records_index.md)
+- 呼ぶ側：`records/index.php`（記録表示の画面） → [records_index.md](./records_index.md)、`members/detail.php`（社員の勤怠の詳細） → [members.md](./members.md)、`src/members.php`（一覧の労働時間） → [src_members.md](./src_members.md)
 - 呼ばれる側：
   - `src/holidays.php`（`japaneseHolidays()`・`HOLIDAYS_MIN_YEAR`） → [src_holidays.md](./src_holidays.md)
   - `src/attendance.php`（`attendanceView()`・`formatClock()`） → [src_attendance.md](./src_attendance.md)
   - `src/requests.php`（`requestView()`・`requestBadgeStatus()`・`hasPendingCorrection()`） → [src_requests.md](./src_requests.md)
 - セルの値を使う JavaScript：`js/records.js` → [js_records.md](./js_records.md)
 - 労働時間のルール：[決定事項.md](../../決定事項.md) の D-049・D-061・D-067
-- テスト：`tests/RecordsTest.php`（月の決め方、労働時間の例、2026年9月のカレンダー）
+- テスト：`tests/RecordsTest.php`（月の決め方、労働時間の例、2026年9月のカレンダー）、`tests/MembersTest.php`（`calendarDays()` の見るだけの値）

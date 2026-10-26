@@ -2,11 +2,11 @@
 
 ## このファイルの役割
 
-記録表示の画面（`records/index.php`）で、**日付を押したときのウィンドウ**と、**修正・新規登録の申請**、**申請の取り消し**を動かすファイル。
+記録表示の画面（`records/index.php`）で、**日付を押したときのウィンドウ**と、**修正・新規登録の申請**、**申請の取り消し**を動かすファイル。社員の勤怠の詳細（`members/detail.php`。PR 10）でも使い、そこでは**日付を押したときのウィンドウだけ**を動かす（見るだけ。7章の最後）。
 
 - 表示する値（時刻・労働時間・申請の一覧など）は、サーバーが画面に埋め込んだもの（`#calendar` の `data-days`）を使う。JavaScript で計算したり、サーバーに問い合わせたりしない。
 - 申請と取り消しは、`fetch()` で `api/requests.php` に送る。入力の誤りはウィンドウの中に出し、受け付けられたら画面を読み込み直す。
-- ウィンドウの HTML（`<dialog>`）は `records/index.php` が用意している。このファイルは、中身を入れて、開いたり閉じたりするだけ。
+- ウィンドウの HTML（`<dialog>`）は、その日の記録のウィンドウを `templates/calendar.php`（カレンダーの部品）が、申請ウィンドウと取り消しの確認を `records/index.php` が用意している。このファイルは、中身を入れて、開いたり閉じたりするだけ。
 
 ## 全体の構成
 
@@ -15,6 +15,7 @@
 | 先頭 | 部品を探す、`data-days` を読む、ウィンドウの外を押したら閉じる |
 | 通知 | 通知（トースト）を5秒で消す |
 | その日の記録と申請 | `requestItem()`（申請1件の表示）、`openDay()`（その日のウィンドウ）、日付を押したとき |
+| 見るだけなら終わり | `data-readonly` のとき、ここで `return`（下の2つを用意しない） |
 | 申請ウィンドウ | `clearErrors()`・`showErrors()`・`fillValues()`・`openRequest()`、申請を送る |
 | 申請の取り消し | `openCancel()`・`showCancelError()`、取り消しを送る |
 
@@ -55,15 +56,18 @@ flowchart TD
     const calendar = document.getElementById('calendar');
     const dayDialog = document.getElementById('day-dialog');
     const requestDialog = document.getElementById('request-dialog');
-    if (!calendar || !dayDialog || !requestDialog) {
+    const readOnly = calendar?.dataset.readonly === 'true';
+    if (!calendar || !dayDialog || (!readOnly && !requestDialog)) {
         return;
     }
     const days = JSON.parse(calendar.dataset.days);
 ```
 
-- 必要な部品が無ければ、何もせずに終わる（早期リターン）。部品が無いまま進むと、`null.dataset` を読んでエラーになる。
+- `readOnly`：見るだけの画面か。社員の勤怠の詳細では、`templates/calendar.php` が `#calendar` に `data-readonly="true"` を付ける。記録表示には付かないので `undefined` になり、`=== 'true'` は `false`。
+- `calendar?.dataset`：`?.`（オプショナルチェーン）。`calendar` が `null`（カレンダーが無い画面）なら、エラーにせず `undefined` を返す。次の行で `!calendar` を確かめる前に読むので、`?.` が要る。
+- 必要な部品が無ければ、何もせずに終わる（早期リターン）。部品が無いまま進むと、`null.dataset` を読んでエラーになる。申請ウィンドウ（`#request-dialog`）は、見るだけの画面には無いので、**見るだけでないときだけ**必ず要る、という条件にしている（`!readOnly && !requestDialog`）。
 - `calendar.dataset.days`：HTML の `data-days="…"` の値。`dataset` は `data-` 属性をまとめたもので、`data-api-url` は `dataset.apiUrl`、`data-csrf-token` は `dataset.csrfToken` のように、`-` のあとが大文字の名前になる。
-- `JSON.parse()`：JSON の文字列を、JavaScript のオブジェクトにする。`days['2026-09-01']` で、その日の値（`label`・`checkIn`・`requests` など）が取り出せる。中身は `records/index.php` の `$days`（[records_index.md](./records_index.md) の4章）。
+- `JSON.parse()`：JSON の文字列を、JavaScript のオブジェクトにする。`days['2026-09-01']` で、その日の値（`label`・`checkIn`・`requests` など）が取り出せる。中身は `src/records.php` の `calendarDays()` が作った `$days`（[src_records.md](./src_records.md) の6章）。
 
 ```js
     const form = document.getElementById('request-form');
@@ -75,6 +79,7 @@ flowchart TD
     let currentDate = null;
 ```
 
+- 見るだけの画面では、申請のフォーム（`request-form` など）が無いので、`form`・`dateInput`・`submitButton` は `null` になる。でも、これらを使うのは下の「申請ウィンドウ」の部分だけで、見るだけのときはそこまで進まない（7章の最後）ので、エラーにならない。
 - `timeNames`：4つの時刻の欄の名前。サーバーに送る項目の名前と同じ。
 - `...timeNames`：**スプレッド構文**。配列の中身を、その場に広げる。`errorNames` は `['form', 'target_date', 'check_in', 'check_out', 'break_start', 'break_end', 'reason']` になる。エラーを出す場所（`request-error-○○`）の一覧。
 - `element`：`document.getElementById` を短く書くための関数（アロー関数）。何度も使うので、名前を短くしている。
@@ -83,7 +88,7 @@ flowchart TD
 ## 3. ウィンドウの外を押したら閉じる
 
 ```js
-    [dayDialog, requestDialog].forEach((dialog) => {
+    [dayDialog, requestDialog].filter(Boolean).forEach((dialog) => {
         dialog.addEventListener('click', (event) => {
             if (event.target === dialog) {
                 dialog.close();
@@ -93,6 +98,7 @@ flowchart TD
 ```
 
 - 2つのウィンドウに、同じ処理を付ける。配列にして `forEach` で回すと、同じコードを2回書かなくてよい。
+- `.filter(Boolean)`：配列から、`null` などの「無いもの」を取り除く。`Boolean` を関数として渡すと、1つずつ `Boolean(値)` で `true`／`false` にし、`true` のものだけが残る。見るだけの画面では `requestDialog` が `null` なので、`[dayDialog]` だけになる（`null.addEventListener` のエラーを防ぐ）。
 - `event.target`：実際に押された部品。ウィンドウの外の暗い部分（`::backdrop`）を押すと、`event.target` は `<dialog>` そのものになる。中の文字やボタンを押したときは、その部品になる。
 - CSS で `<dialog>` の余白（`padding`）を 0 にして、中身は `.dialog__body` に入れているので、「`<dialog>` そのものが押された」＝「外の暗い部分が押された」と判断できる。
 
@@ -257,6 +263,24 @@ flowchart TD
 ```
 
 - その日のウィンドウの「修正」「申請する」を押したら、ウィンドウを閉じて、申請ウィンドウを開く。どの日かは `currentDate`（`openDay()` で覚えた日）で分かる。
+
+### 見るだけの画面では、ここで終わる（社員の勤怠の詳細。D-070）
+
+```js
+    // 見るだけの画面には、申請ウィンドウと取り消しの確認が無い（その日の記録と申請の表示だけ）
+    if (readOnly) {
+        return;
+    }
+```
+
+- 見るだけのときは、ここで関数を抜ける。この下の「申請ウィンドウ」（8〜11章）と「申請の取り消し」（12章）の処理は、**用意しない**（ボタンにイベントを付けない）。その画面には、申請のフォームも取り消しの確認も無いので、用意しようとすると `null` に `addEventListener` してエラーになる。
+- ここまでの処理（日付を押したときの `openDay()` など）は、記録表示と同じものが動く。ボタンを出すかどうかは、サーバーが渡した値で決まる。見るだけの画面では `calendarDays($calendar, true)` が `canRequest`・`pendingCorrection`・`canCancel` を全部 `false` にしているので（[src_records.md](./src_records.md) の6章）：
+  - 「修正」「申請する」のボタン（`day-request`）は、いつも隠れる。
+  - 申請中の案内（`day-pending`）は出ない。申請の一覧の「取り消す」ボタンも作られない（`requestItem()` の `if (request.canCancel)`）。
+  - 記録も申請も無い日を押したときも、`day.canRequest` が `false` なので申請ウィンドウは開かず、`openDay()` で「記録はありません。」のウィンドウが出る。
+- 下にある `openRequest()`・`openCancel()` などは `function` で書いた関数（関数宣言）なので、`return` より下にあっても、関数の中のどこからでも呼べる（巻き上げ）。ただ、見るだけの画面では、それらを呼ぶボタンが出ないので、呼ばれることはない。
+
+> **ここが重要**：見るだけの画面のために、ファイルを2つに分けたり、あちこちに `if (readOnly)` を書いたりしていない。**値（`canRequest` など）で表示を決める作り**にしておいたので、サーバーが `false` を渡すだけで、ほとんどのボタンが自然に消える。JavaScript で足したのは、「無い部品に触らない」ための入口の条件と、この `return` だけ。
 
 ## 8. 誤りの表示：`clearErrors()`・`showErrors()`
 
@@ -551,11 +575,14 @@ flowchart TD
 | 受け付けたら読み込み直す | 表示を作るのは PHP の1か所だけ |
 | 画面の値はサーバーで確かめ直す | 取り消しの番号は、本人・申請中の条件で守る |
 | 新しい書き方で短く | `??`・`??=`・`?.`・スプレッド構文・分割代入・テンプレートリテラル |
+| 1つのファイルを、値で出し分けて使い回す | 見るだけの画面は `data-readonly` で、日付のウィンドウだけを動かす |
+| 無いかもしれない部品は取り除いてから回す | `[dayDialog, requestDialog].filter(Boolean)` |
 
 ## 関連するファイル
 
-- 画面の HTML と `data-days`：`records/index.php` → [records_index.md](./records_index.md)
-- セルの値を作る：`src/records.php`（`buildCalendar()`） → [src_records.md](./src_records.md)
+- 画面の HTML：`records/index.php` → [records_index.md](./records_index.md)、カレンダーとその日の記録のウィンドウ・`data-days`・`data-readonly`：`templates/calendar.php` → [templates.md](./templates.md)
+- 見るだけで使う画面：`members/detail.php`（社員の勤怠の詳細） → [members.md](./members.md)
+- セルの値を作る：`src/records.php`（`buildCalendar()`・`calendarDays()`） → [src_records.md](./src_records.md)
 - 申請の表示の形（`requestView()`）と入力のルール：`src/requests.php` → [src_requests.md](./src_requests.md)
 - 送り先：`api/requests.php` → [api_requests.md](./api_requests.md)
 - 取り消しの SQL（`deletePendingRequest()`）：`src/queries/attendance_requests.php` → [src_queries_attendance_requests.md](./src_queries_attendance_requests.md)

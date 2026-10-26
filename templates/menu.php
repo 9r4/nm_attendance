@@ -1,12 +1,13 @@
 <?php
 // ハンバーガーメニュー（ほかの画面への移動）。templates/header.php から読み込む（ログイン中のみ）
-// 項目は権限ごとに出し分ける（承認は管理者だけ、アカウント管理・部署・勤務設定はシステム管理者だけ）
+// 項目は権限ごとに出し分ける（承認・社員の勤怠は管理者だけ、アカウント管理・部署・勤務設定はシステム管理者だけ）
 $menuItems = [['path' => '', 'label' => 'メイン画面']];
 if ($currentUser['role'] !== ROLE_SYSTEM_ADMIN) {
     $menuItems[] = ['path' => 'records/', 'label' => '記録表示'];
 }
 if ($currentUser['role'] === ROLE_MANAGER) {
     $menuItems[] = ['path' => 'approvals/', 'label' => '承認'];
+    $menuItems[] = ['path' => 'members/', 'label' => '社員の勤怠'];
 }
 if ($currentUser['role'] === ROLE_SYSTEM_ADMIN) {
     array_push($menuItems, ...ADMIN_MENU_ITEMS);

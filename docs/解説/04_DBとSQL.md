@@ -98,6 +98,8 @@ LEFT JOIN attendances a ON a.employee_id = r.employee_id AND a.work_date = r.tar
 
 `JOIN` だと勤怠が無い申請が消えてしまう。`LEFT JOIN` なら申請の行は残り、勤怠の列が `NULL` になる。
 
+社員の勤怠の一覧（`fetchMemberAttendances()`）も同じ形で、社員に「今日の勤怠」を `LEFT JOIN` する（`ON a.employee_id = e.employee_id AND a.work_date = :work_date`）。日付の条件を `WHERE` ではなく `ON` に書く理由は、13-2 で例の表を使って説明する。
+
 ### GROUP BY と COUNT（まとめて数える）
 
 部署の画面の「在籍人数」（`fetchDepartments()`）：

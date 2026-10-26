@@ -1,13 +1,15 @@
 // 記録表示：日付を押したときの表示（その日の記録と申請）と、修正・新規登録の申請ウィンドウ
 // 表示する値は、サーバーが画面に埋め込んだもの（#calendar の data-days）を使う
 // 申請は api/requests.php に送る。入力の誤りはウィンドウの中に出し、受け付けられたら画面を読み込み直す
+// 社員の勤怠の詳細（#calendar に data-readonly）では、日付を押したときの表示だけを行う（申請・取り消しは無い。D-070）
 (() => {
     'use strict';
 
     const calendar = document.getElementById('calendar');
     const dayDialog = document.getElementById('day-dialog');
     const requestDialog = document.getElementById('request-dialog');
-    if (!calendar || !dayDialog || !requestDialog) {
+    const readOnly = calendar?.dataset.readonly === 'true';
+    if (!calendar || !dayDialog || (!readOnly && !requestDialog)) {
         return;
     }
     const days = JSON.parse(calendar.dataset.days);
@@ -20,7 +22,7 @@
     let currentDate = null;
 
     // 開いた画面のウィンドウの外（暗い部分）を押したら閉じる
-    [dayDialog, requestDialog].forEach((dialog) => {
+    [dayDialog, requestDialog].filter(Boolean).forEach((dialog) => {
         dialog.addEventListener('click', (event) => {
             if (event.target === dialog) {
                 dialog.close();
@@ -129,6 +131,11 @@
         dayDialog.close();
         openRequest(currentDate, true);
     });
+
+    // 見るだけの画面には、申請ウィンドウと取り消しの確認が無い（その日の記録と申請の表示だけ）
+    if (readOnly) {
+        return;
+    }
 
     // ---- 申請ウィンドウ ----
     function clearErrors() {

@@ -1154,6 +1154,132 @@ textarea {
     gap: 4px;
 }
 
+/* 社員の勤怠（一覧は PC は表、768px 未満はカード型。詳細は記録表示と同じカレンダー。D-070） */
+.members {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 1184px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+}
+
+.members__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 16px;
+}
+
+.members__title {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.members__note {
+    color: var(--color-text-sub);
+    font-size: 14px;
+}
+
+.member-list {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+}
+
+.member-list__head,
+.member-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) 96px 56px 56px 104px 96px 76px;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 24px;
+}
+
+.member-list__head {
+    background: var(--color-holiday-bg);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.member-list__empty {
+    padding: 48px;
+    color: var(--color-text-sub);
+    text-align: center;
+}
+
+.member-item {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.member-item:last-child {
+    border-bottom: 0;
+}
+
+.member-item__name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.member-item__sub,
+.member-item__department {
+    color: var(--color-text-sub);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.member-item__sub,
+.member-item__time {
+    font-variant-numeric: tabular-nums;
+}
+
+.member-item__time {
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+.member-item__label {
+    display: none;
+}
+
+.member-item__actions .button {
+    box-sizing: border-box;
+    width: 100%;
+    font-size: 15px;
+    text-decoration: none;
+}
+
+.member-detail__head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.member-detail__back {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-text-sub);
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.member-detail__name {
+    font-size: 24px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.member-detail__sub {
+    margin-left: 4px;
+    color: var(--color-text-sub);
+    font-size: 15px;
+    font-weight: 400;
+}
+
 /* システム管理者の画面（アカウント管理・部署・勤務設定。PC は左に入力のカード、右に一覧。D-066） */
 .admin {
     display: flex;
@@ -1407,6 +1533,71 @@ textarea {
     }
 
     .approval-item__actions .button {
+        min-height: 48px;
+    }
+
+    .member-list {
+        background: transparent;
+        border: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .member-list__head {
+        display: none;
+    }
+
+    .member-list__empty {
+        padding: 48px 0;
+    }
+
+    /* カード：1行目に氏名と状態、2行目に部署、3〜4行目に4つの時刻（2つずつ）、最後に「詳細」 */
+    .member-item {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        padding: 16px;
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 14px;
+    }
+
+    .member-item:last-child {
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .member-item__person {
+        grid-column: 1 / 4;
+        grid-row: 1;
+    }
+
+    .member-item__status {
+        grid-column: 4;
+        grid-row: 1;
+        align-self: start;
+        justify-self: end;
+    }
+
+    .member-item__department {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .member-item__label {
+        display: block;
+        color: var(--color-text-muted);
+        font-size: 12px;
+    }
+
+    .member-item__time {
+        grid-column: span 2;
+    }
+
+    .member-item__actions {
+        grid-column: 1 / -1;
+    }
+
+    .member-item__actions .button {
         min-height: 48px;
     }
 

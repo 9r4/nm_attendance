@@ -154,3 +154,28 @@ function buildCalendar(array $month, array $attendances, array $settings, string
         'totalMinutes' => $totalMinutes,
     ];
 }
+
+// 日付を押したときに表示する、その日の記録と申請（js/records.js が使う。画面に data-days で埋め込む）
+// $calendar：buildCalendar() の戻り値。戻り値：日付（'2026-10-15'）ごとの値
+// $readOnly：見るだけ（社員の勤怠の詳細。D-070）なら、申請・修正・取り消しのボタンと、申請中の案内を出さないようにする
+function calendarDays(array $calendar, bool $readOnly = false): array {
+    $days = [];
+    foreach ($calendar['weeks'] as $week) {
+        foreach ($week as $cell) {
+            if ($cell === null) {
+                continue;
+            }
+            $day = array_intersect_key($cell, array_flip([
+                'label', 'holiday', 'hasRecord', 'checkIn', 'checkOut', 'break', 'workTime',
+                'values', 'requests', 'isFuture', 'pendingCorrection', 'canRequest',
+            ]));
+            if ($readOnly) {
+                $day['canRequest'] = false;
+                $day['pendingCorrection'] = false;
+                $day['requests'] = array_map(fn ($request) => array_replace($request, ['canCancel' => false]), $day['requests']);
+            }
+            $days[$cell['date']] = $day;
+        }
+    }
+    return $days;
+}

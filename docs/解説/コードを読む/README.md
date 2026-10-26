@@ -2,7 +2,7 @@
 
 このシステムのコードを、**ファイルごとに上から順に読み**、「このコードはこういう動きをする」「ここが重要」をエンジニアの目で解説する。
 
-- 対象：2026-10-22 時点の `main`。コードの抜き出しは実際のファイルからの写し（長い部分は `…` で省略）。
+- 対象：2026-10-26 時点。`main`（PR 1〜9 をマージしたあと）に、作業ブランチ `claude/pr10-members` の PR 10（社員の勤怠。D-070）を入れたもの。コードの抜き出しは実際のファイルからの写し（長い部分は `…` で省略）。PR 10 で依頼者が書いた関数（`fetchMemberAttendances()` と、`fetchEmployeeProfile()` への列の追加）まで含む。
 - 各章の形：このファイルの役割 → 全体の構成 → コードを上から読む（使っている言語の書き方の説明つき）→ **ここが重要** → まとめ → 関連するファイル。
 - 仕組みを機能ごとに横断して説明した資料は、[../README.md](../README.md) の「仕組み編」。
 
@@ -21,7 +21,7 @@
 | `src/auth.php` | [src_auth.md](./src_auth.md) | ログイン、ログイン中の利用者、権限 |
 | `login.php` | [login.md](./login.md) | ログイン画面 |
 | `logout.php` | [logout.md](./logout.md) | ログアウト |
-| `templates/`・`js/menu.js` | [templates.md](./templates.md) | 画面の上下の共通部分とメニュー |
+| `templates/`・`js/menu.js` | [templates.md](./templates.md) | 画面の上下の共通部分、メニュー、月カレンダーの部品（`templates/calendar.php`） |
 
 ### 2. メイン画面（出退勤）
 
@@ -39,11 +39,12 @@
 | `records/index.php` | [records_index.md](./records_index.md) | 記録表示の PHP |
 | `src/records.php` | [src_records.md](./src_records.md) | 月の決め方、労働時間、カレンダー |
 | `src/holidays.php` | [src_holidays.md](./src_holidays.md) | 祝日の計算 |
-| `js/records.js` | [js_records.md](./js_records.md) | 日付のウィンドウ、申請ウィンドウ、取り消し |
+| `templates/calendar.php` | [templates.md](./templates.md) の4章 | 月の切り替え・カレンダー・日付のウィンドウの HTML（社員の勤怠の詳細と共有） |
+| `js/records.js` | [js_records.md](./js_records.md) | 日付のウィンドウ、申請ウィンドウ、取り消し（見るだけの画面では日付のウィンドウだけ） |
 | `api/requests.php` | [api_requests.md](./api_requests.md) | 申請の受け口 |
 | `src/requests.php` | [src_requests.md](./src_requests.md) | 申請の入力の確認・保存・表示 |
 
-### 4. 承認
+### 4. 承認と社員の勤怠（管理者の画面）
 
 | ファイル | 章 | 一言で |
 | --- | --- | --- |
@@ -51,6 +52,10 @@
 | `api/approvals.php` | [api_approvals.md](./api_approvals.md) | 承認・却下の受け口 |
 | `src/approvals.php` | [src_approvals.md](./src_approvals.md) | 承認範囲、承認・却下のトランザクション |
 | `js/approvals.js` | [js_approvals.md](./js_approvals.md) | 承認・却下のボタンとウィンドウ |
+| `members/index.php`・`members/detail.php` | [members.md](./members.md) | 社員の勤怠の一覧（今日の勤怠）と詳細（月カレンダー。見るだけ） |
+| `src/members.php` | [src_members.md](./src_members.md) | 見てよい社員か、一覧の1行の表示 |
+
+承認と社員の勤怠は、どちらも管理者だけの画面で、対象は同じ**承認範囲**（自分の部署／全社）。`src/approvals.php` の承認範囲の章を先に読むと、社員の勤怠も読みやすい。社員の勤怠の詳細は、3の記録表示のカレンダーを使い回している。
 
 ### 5. システム管理者
 
@@ -67,7 +72,7 @@
 | --- | --- | --- |
 | `attendances.php` | [src_queries_attendances.md](./src_queries_attendances.md) | 勤怠の読み書き |
 | `attendance_requests.php` | [src_queries_attendance_requests.md](./src_queries_attendance_requests.md) | 申請の読み書き、承認の一覧とロック |
-| `employees.php`・`login_accounts.php` | [src_queries_employees_login_accounts.md](./src_queries_employees_login_accounts.md) | 社員とログイン情報 |
+| `employees.php`・`login_accounts.php` | [src_queries_employees_login_accounts.md](./src_queries_employees_login_accounts.md) | 社員とログイン情報、社員の勤怠の一覧（`LEFT JOIN` の `ON`） |
 | `departments.php`・`employee_id_sequences.php`・`work_settings.php` | [src_queries_departments_sequences_work_settings.md](./src_queries_departments_sequences_work_settings.md) | 部署、採番、勤務設定 |
 
 ### 7. 見た目とテスト
