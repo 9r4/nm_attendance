@@ -70,7 +70,8 @@ const items = (page) => page.$$eval('.approval-item', els => els.map(el => el.in
   check('社員は approvals/ が 403', (await yamada.goto(BASE + 'approvals/')).status() === 403);
   await sato.goto(BASE);
   await sato.click('#menu-open');
-  check('管理者のメニューに「承認」', JSON.stringify(await sato.$$eval('#menu .menu__link', as => as.map(a => a.textContent))) === JSON.stringify(['メイン画面', '記録表示', '承認']));
+  // PR 10 で「社員の勤怠」（管理者のみ）が「承認」の下に増えた（D-070）
+  check('管理者のメニューに「承認」', JSON.stringify(await sato.$$eval('#menu .menu__link', as => as.map(a => a.textContent))) === JSON.stringify(['メイン画面', '記録表示', '承認', '社員の勤怠']));
   await Promise.all([sato.waitForNavigation(), sato.click('#menu >> text=承認')]);
 
   console.log('[3] 未処理の一覧（佐藤：営業部）');
