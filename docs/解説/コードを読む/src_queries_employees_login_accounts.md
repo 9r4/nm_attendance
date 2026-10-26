@@ -4,26 +4,27 @@
 
 社員の表 `employees` と、ログイン情報の表 `login_accounts` に対する **SQL をまとめた2つのファイル**。2つの表は「社員1人に、ログイン情報1つ」で結びついていて、アカウントの作成・無効化では**同じトランザクションの中で一緒に呼ばれる**ので、1つの章で読む。
 
-- `employees.php`：ヘッダーに出す氏名・部署名の読み出し、アカウント管理の一覧、社員の追加、在籍状態の変更。
+- `employees.php`：ヘッダーに出す氏名・部署名の読み出し、アカウント管理の一覧、社員の追加、在籍状態の変更、社員の勤怠の一覧（PR 10。**中身は依頼者がこれから書く**。6章）。
 - `login_accounts.php`：ログインのときの読み出し、最終ログイン日時、ログイン情報の追加、利用可否・パスワードの変更。
 - 「ログインしてよいか」「このアカウントを操作してよいか」は決めない。決めるのは `src/auth.php` と `src/admin.php`。
-- 関数の中には、依頼者が書く前の手順を書いた `TODO` のコメントが残っている。下の引用では、その `TODO` のコメント行（関数の上にある「取得する列に … を追加する」の `TODO` も含む）を省いている。
+- 関数の中には、依頼者が書く前の手順を書いた `TODO` のコメントが残っている。下の引用では、その `TODO` のコメント行（関数の上にある「取得する列に … を追加する」の `TODO` も含む）を省いている。ただし、まだ中身を書いていない PR 10 の部分（2章の在籍状態の列と、6章の `fetchMemberAttendances()`）は、`TODO` のコメントそのものを引用して説明する。
 
 ## 全体の構成
 
 | ファイル | 関数 | SQL の種類 | 呼ぶ側 |
 | --- | --- | --- | --- |
-| `employees.php` | `fetchEmployeeProfile()` | SELECT（JOIN・1行） | `src/auth.php` の `currentUser()`、`src/admin.php` の `findManagedAccount()` |
+| `employees.php` | `fetchEmployeeProfile()` | SELECT（JOIN・1行） | `src/auth.php` の `currentUser()`、`src/admin.php` の `findManagedAccount()`、`members/detail.php` |
 | | `insertEmployee()` | INSERT | `src/admin.php` の `createAccount()`（トランザクションの中） |
 | | `fetchAccounts()` | SELECT（3つの表の JOIN） | `admin/accounts.php` |
 | | `updateEmploymentStatus()` | UPDATE | `src/admin.php` の `deactivateAccount()`・`reactivateAccount()`（トランザクションの中） |
+| | `fetchMemberAttendances()` | SELECT（JOIN・LEFT JOIN、条件によって足す SQL）。**枠だけ** | `members/index.php` |
 | `login_accounts.php` | `fetchLoginAccount()` | SELECT（1行） | `src/auth.php` の `attemptLogin()`・`currentUser()`、`src/admin.php` の `findManagedAccount()` |
 | | `updateLastLoginAt()` | UPDATE | `attemptLogin()` |
 | | `insertLoginAccount()` | INSERT | `createAccount()`（トランザクションの中） |
 | | `updateLoginActive()` | UPDATE | `deactivateAccount()`・`reactivateAccount()`（トランザクションの中） |
 | | `updatePasswordHash()` | UPDATE | `src/admin.php` の `resetPassword()` |
 
-`fetchEmployeeProfile()`・`fetchLoginAccount()`・`updateLastLoginAt()` は PR 2（認証）で書き、`fetchEmployeeProfile()` には PR 4・PR 6 で列を足した。残りは PR 7（システム管理者のアカウント管理）で書いた。
+`fetchEmployeeProfile()`・`fetchLoginAccount()`・`updateLastLoginAt()` は PR 2（認証）で書き、`fetchEmployeeProfile()` には PR 4・PR 6 で列を足した。残りは PR 7（システム管理者のアカウント管理）で書いた。PR 10（社員の勤怠）では、`fetchMemberAttendances()` の枠と、`fetchEmployeeProfile()` に在籍状態の列を足す `TODO` を Claude が置いた。**中身は依頼者が書く**（2026-10-26 時点では、まだ書いていない）。
 
 ---
 
@@ -67,7 +68,7 @@ CREATE TABLE login_accounts (
 - **社員・管理者**：`employees` に1行、`login_accounts` に1行。ログイン ID は社員コードと同じ（D-011）。CHECK 制約 `chk_login_accounts_role` が「社員なら `employee_id = login_id`」を DB で守る。
 - **システム管理者**：社員ではないので `employees` に行が無く、`login_accounts` の `employee_id` は `NULL`（D-021）。
 - `uq_login_accounts_employee`：1人の社員に、ログイン情報は1つまで。
-- 外部キー `fk_login_accounts_employee` があるので、**ログイン情報は、社員の行ができてからでないと作れない**（3章と8章の順番に効く）。
+- 外部キー `fk_login_accounts_employee` があるので、**ログイン情報は、社員の行ができてからでないと作れない**（3章と9章の順番に効く）。
 
 文字の比べ方（照合順序）にも注意する。
 
@@ -100,6 +101,17 @@ function fetchEmployeeProfile(PDO $pdo, string $employeeId): ?array {
 - `department_id` は `NOT NULL` で外部キーもあるので、社員には必ず部署がある。`JOIN`（両方にある行だけ残す）でも、社員が消えることはない。
 - 社員 ID は文字列なので `PDO::PARAM_STR`。主キーで探すので、結果は0行か1行。
 - `e.joined_on`（入社日）は PR 4 で足した列（記録表示で、前の月へ戻れる範囲に使う）。`e.department_id` は PR 6 で足した列（承認範囲が「部署」の管理者の判断に使う）。
+
+### PR 10 で足す列：`e.employment_status`（依頼者が書く）
+
+```php
+// 戻り値：['employee_id' => '2025001', 'name' => '山田 太郎', 'department_name' => '営業部', 'joined_on' => '2025-04-01', 'department_id' => 1, 'employment_status' => 'active']。見つからなければ null
+// TODO（依頼者・PR 10）：取得する列に、在籍状態 e.employment_status を追加する（社員の勤怠の詳細で、退職した社員を出さないための判断に使う）
+```
+
+- 上の SQL の `SELECT` の列に、`e.employment_status` を1つ足す（PR 4・PR 6 と同じ足し方）。戻り値のコメントは、足したあとの形で先に書いてある。
+- 使うのは、社員の勤怠の詳細（`members/detail.php`）の `canViewMember()`。`'active'`（在籍）の社員だけを見せる（[src_members.md](./src_members.md) の2章）。
+- **足す前は**、戻り値に `employment_status` のキーが無い。`canViewMember()` は「在籍状態が分からないときは見せない」作りなので、その間は、だれの詳細を開いても 404 になる（見えすぎることはない）。テスト `tests/MembersDbTest.php` の `testProfileHasEmploymentStatus()` は、足したあとに通るようになる。
 
 > **ここが重要**：この関数は、`currentUser()` から**画面を開くたびに**呼ばれる（ヘッダーの氏名・部署名と、権限の判断のため）。ログインしたときに覚えた値ではなく、毎回 DB から読むので、システム管理者が部署名を変えたら、次に画面を開いたときにはもう新しい名前が出る。主キーで1行を読むだけなので、毎回読んでも重くない。
 
@@ -141,7 +153,7 @@ createAccount()：
   beginTransaction()
     nextEmployeeNumber()   … 通番を1つ進める（行をロック）
     insertEmployee()       … 社員（ここ）
-    insertLoginAccount()   … ログイン情報（8章）
+    insertLoginAccount()   … ログイン情報（9章）
   commit()                 … 途中で例外が出たら rollBack()
 ```
 
@@ -197,9 +209,115 @@ function updateEmploymentStatus(PDO $pdo, string $employeeId, string $status, ?s
 
 ---
 
+## 6. `fetchMemberAttendances()`：対象社員と、その日の勤怠（PR 10。枠だけ）
+
+社員の勤怠の一覧（`members/index.php`）で使う。**依頼者がこれから書く関数**で、今は、処理の流れを書いた `TODO` のコメントと、最後の `throw` だけがある（D-054。枠を Claude が置き、中身を依頼者が書く）。
+
+```php
+// 対象社員と、その日の勤怠を取得する（社員の勤怠の一覧。D-070）
+// 対象：在籍中（employment_status = 'active'）で、自分（$managerId）以外。$departmentId が null でなければ、その部署の社員だけ
+// $departmentId：承認範囲が「部署」なら管理者の部署 ID、「全社」なら null（approvalDepartmentId() の値）。$workDate：'2026-10-26'
+// 戻り値：[['employee_id' => '2025001', 'name' => '山田 太郎', 'department_name' => '営業部', 'check_in_at' => '2026-10-26 09:01:00', 'check_out_at' => null, 'break_start_at' => null, 'break_end_at' => null], …]
+// 打刻していない社員も入る（勤怠の4つの列が null）。対象社員がいなければ []
+function fetchMemberAttendances(PDO $pdo, string $managerId, ?int $departmentId, string $workDate): array {
+    // TODO（依頼者）：社員・部署を JOIN し、その日の勤怠を LEFT JOIN して取得する
+    // 1. SQL を書く：
+    //    SELECT e.employee_id, e.name, d.name AS department_name,
+    //      a.check_in_at, a.check_out_at, a.break_start_at, a.break_end_at
+    //    FROM employees e
+    //    JOIN departments d ON d.id = e.department_id
+    //    LEFT JOIN attendances a ON a.employee_id = e.employee_id AND a.work_date = :work_date
+    //    WHERE e.employment_status = 'active' AND e.employee_id <> :manager_id
+    //    ※ 日付の条件（a.work_date = :work_date）は、WHERE ではなく ON に書く
+    //      （WHERE に書くと、勤怠の行が無い＝打刻していない社員が、一覧から消える）
+    // 2. $departmentId が null でなければ、WHERE の後ろに AND e.department_id = :department_id を付け足す
+    //    （fetchPendingRequests() と同じ書き方。値は文字列でつながず、プレースホルダで渡す）
+    // 3. 最後に ORDER BY d.id, e.employee_id を付ける（部署の作成順 → 社員コードの順）
+    // 4. prepare → bindValue（:work_date と :manager_id は PDO::PARAM_STR、:department_id は付け足したときだけ PDO::PARAM_INT）→ execute
+    // 5. fetchAll() の結果を返す
+    throw new RuntimeException('fetchMemberAttendances は未実装です');
+}
+```
+
+- 引数：`$managerId` は見ている管理者の社員 ID（自分を除くため）。`$departmentId` は `?int`（整数か `null`）で、承認の一覧の `fetchPendingRequests()` と同じ意味（`null` なら全社）。`$workDate` は今日の日付。
+- 今は `throw new RuntimeException(…)` で止まる。一覧の画面を開くと、この例外が共通のエラー処理（`src/errors.php`）に届き、画面には定型の文が出る。DB のテスト（`tests/MembersDbTest.php`）も、中身を書くまでは通らない。
+- `TODO` の手順は、`fetchPendingRequests()`（[src_queries_attendance_requests.md](./src_queries_attendance_requests.md)）とほぼ同じ形。新しく覚えるのは、**`LEFT JOIN` の `ON` に値の条件（日付）を入れる**ところ。
+
+### 3つの表のつなぎ方
+
+| 表 | つなぎ方 | 理由 |
+| --- | --- | --- |
+| `employees e` | 元の表（`FROM`） | 一覧は「社員」の一覧。社員1人が1行 |
+| `departments d` | `JOIN` | 社員には必ず部署がある（`NOT NULL` と外部キー）。部署名と並び順に使う |
+| `attendances a` | **`LEFT JOIN`** | 今日打刻していない社員は、勤怠の行が無い。それでも一覧に出したい |
+
+- 勤怠は「1人1日1行」（一意制約 `uq_attendance_employee_date`）なので、その日の勤怠は0行か1行。`LEFT JOIN` しても、社員の行が増えることはない。
+- 打刻していない社員は、`a.` の4つの列が `NULL` になる。画面（`memberRowView()`）は、それを「未出勤」「`--:--`」として出す。
+
+### 日付の条件は、`WHERE` ではなく `ON` に書く
+
+この関数で一番大事なところ。例として、今日（10/26）の勤怠が、山田さんにはあり、伊藤さんには無い（10/25 の勤怠だけがある）とする。
+
+**`ON` に書いたとき**（`LEFT JOIN attendances a ON a.employee_id = e.employee_id AND a.work_date = :work_date`）：
+
+| `e.employee_id` | `e.name` | `a.work_date` | `a.check_in_at` |
+| --- | --- | --- | --- |
+| 2025001 | 山田 太郎 | 2026-10-26 | 2026-10-26 09:01:00 |
+| 2025006 | 伊藤 三郎 | `NULL` | `NULL` |
+
+`ON` は「**どの行をつなぐか**」の条件。伊藤さんには「10/26 の勤怠」という相手がいないので、勤怠の列が `NULL` のまま、伊藤さんの行は残る（`LEFT JOIN` だから）。10/25 の勤怠は、条件に合わないので最初からつながらない（ほかの日が混ざらない）。
+
+**`WHERE` に書いたとき**（`LEFT JOIN attendances a ON a.employee_id = e.employee_id` … `WHERE a.work_date = :work_date`）：
+
+まず日付の条件なしでつなぐので、伊藤さんには 10/25 の勤怠がつながる。そのあと `WHERE` が**つないだあとの行**を絞る。
+
+| `e.employee_id` | `a.work_date` | `WHERE a.work_date = '2026-10-26'` |
+| --- | --- | --- |
+| 2025001 | 2026-10-26 | 残る |
+| 2025001 | 2026-10-25（山田さんの前の日） | 消える |
+| 2025006 | 2026-10-25 | 消える |
+| （勤怠が1日も無い社員） | `NULL` | 消える（`NULL = '2026-10-26'` は「正しい」にならない） |
+
+結果は山田さんの1行だけになり、**今日打刻していない伊藤さんが一覧から消える**。`LEFT JOIN` にした意味が無くなってしまう。
+
+> **ここが重要**：`LEFT JOIN` の**右の表（ここでは勤怠）への条件は `ON` に書く**。`WHERE` は「つないだあとの行」から選ぶので、右の列が `NULL` の行（相手がいなかった行）は、右の表の条件に合わずに消える。部署の画面の在籍人数（`fetchDepartments()` の `e.employment_status = 'active'`）も、同じ理由で `ON` に書いている（[src_queries_departments_sequences_work_settings.md](./src_queries_departments_sequences_work_settings.md) の2章）。一方、`e.employment_status = 'active'` や `e.employee_id <> :manager_id` は**左の表（社員）への条件**なので、`WHERE` に書いてよい（社員そのものを絞りたい）。
+
+### 条件によって足す SQL（`fetchPendingRequests()` と同じ形）
+
+手順の2〜4は、承認の一覧ですでに書いた形と同じ。参考に、`fetchPendingRequests()` の該当の部分を示す（[src_queries_attendance_requests.md](./src_queries_attendance_requests.md)）。
+
+```php
+    if ($departmentId !== null) {
+        $sql .= ' AND e.department_id = :department_id';
+    }
+```
+
+```php
+    if ($departmentId !== null) {
+        $stmt->bindValue(':department_id', $departmentId, PDO::PARAM_INT);
+    }
+```
+
+- `$sql .= …`：文字列の後ろに付け足す。部署の条件は、承認範囲が「部署」の管理者のときだけ付ける。
+- 値（部署 ID）は SQL の文字列につながず、プレースホルダ `:department_id` で渡す。`bindValue` も、**SQL に足したときだけ**呼ぶ（SQL に無いプレースホルダに値を渡すと、エラーになる）。
+- `ORDER BY` は、条件を全部足したあと、最後に付ける（SQL では `WHERE` の後ろに `ORDER BY` が来る）。
+- 並び順 `ORDER BY d.id, e.employee_id`：部署の作成順 → 同じ部署の中は社員コードの順（4章と同じく、作った順になる）。
+- `:work_date` と `:manager_id` は、どちらも文字列なので `PDO::PARAM_STR`。プレースホルダの名前は、SQL の中で1回ずつしか使わない（9章の HY093 の話）。
+
+### テストで確かめること（`tests/MembersDbTest.php`）
+
+依頼者が書いたあと、Claude が DB のテストで次を確かめる（[tests.md](./tests.md) の6章）。
+
+- 承認範囲：部署の管理者は自分の部署だけ、全社の管理者は全社員。どちらも自分と退職した社員は出ない。
+- **打刻していない社員も出て、勤怠の列が `null`**。ほかの日の勤怠が混ざらない（`ON` に書いた効き目）。
+- 並び順（部署の作成順 → 社員コードの順）と、画面で使う7つの列（キーの名前と順番）。
+- 対象社員がいないときは `[]`。
+
+---
+
 ## login_accounts.php
 
-## 6. `fetchLoginAccount()`：ログイン ID で、ログイン情報を読む
+## 7. `fetchLoginAccount()`：ログイン ID で、ログイン情報を読む
 
 ```php
 function fetchLoginAccount(PDO $pdo, string $loginId): ?array {
@@ -223,7 +341,7 @@ function fetchLoginAccount(PDO $pdo, string $loginId): ?array {
 
 > **ここが重要**：パスワードの照合を **SQL の `WHERE` でしていない**。`password_hash()` で作ったハッシュは、作るたびに違う値になる（ソルトという、毎回違うおまけが混ぜられる）ので、`WHERE password_hash = …` では探せない。正しいやり方は、**ID で行を読んで、PHP の `password_verify()` で照らし合わせる**。この関数がハッシュを返すのは、そのため。
 
-## 7. `updateLastLoginAt()`：最終ログイン日時を今にする
+## 8. `updateLastLoginAt()`：最終ログイン日時を今にする
 
 ```php
 function updateLastLoginAt(PDO $pdo, string $loginId): void {
@@ -237,7 +355,7 @@ function updateLastLoginAt(PDO $pdo, string $loginId): void {
 - **`NOW()`** は MySQL の関数で、今の日時を返す。PHP で日時を作って渡すのではなく、DB に作らせている。接続のときに `SET time_zone = '+09:00'` をしているので、日本時間になる。
 - `attemptLogin()` が、パスワードが合って、利用可のときだけ呼ぶ。トランザクションは使っていない（1つの UPDATE だけなので、要らない）。
 
-## 8. `insertLoginAccount()`：社員・管理者のログイン情報を追加する
+## 9. `insertLoginAccount()`：社員・管理者のログイン情報を追加する
 
 ```php
 function insertLoginAccount(PDO $pdo, string $employeeId, string $passwordHash, string $role, string $approvalScope): void {
@@ -260,7 +378,7 @@ function insertLoginAccount(PDO $pdo, string $employeeId, string $passwordHash, 
 - `$passwordHash` は、呼ぶ側が `password_hash()` で作ったハッシュ。**平文のパスワードは、この関数にも DB にも渡らない**。
 - 外部キー `fk_login_accounts_employee` があるので、`createAccount()` は `insertEmployee()` の**あとで**この関数を呼ぶ（3章の流れ）。順番が逆だと、外部キーの違反になる。
 
-## 9. `updateLoginActive()`：ログインの利用可否を変える
+## 10. `updateLoginActive()`：ログインの利用可否を変える
 
 ```php
 function updateLoginActive(PDO $pdo, string $loginId, bool $isActive): void {
@@ -274,9 +392,9 @@ function updateLoginActive(PDO $pdo, string $loginId, bool $isActive): void {
 
 - PHP では `true`／`false`（`bool`）で受け取り、DB の `TINYINT(1)` には `1`／`0` の数で渡す。`$isActive ? 1 : 0`（三項演算子）で変換し、型は `PDO::PARAM_INT`。関数の外からは「有効か」だけを考えればよく、「DB では 1／0」という事情は、この関数の中に閉じ込めている。
 - 呼ばれるのは、5章の `runInTransaction()` の中（`updateEmploymentStatus()` と一緒）。
-- 無効にすると、その人が今ログイン中でも、次に画面を開いたときに `currentUser()` の `fetchLoginAccount()` が `is_active` を見て、ログアウトさせる（6章）。
+- 無効にすると、その人が今ログイン中でも、次に画面を開いたときに `currentUser()` の `fetchLoginAccount()` が `is_active` を見て、ログアウトさせる（7章）。
 
-## 10. `updatePasswordHash()`：パスワードを変える
+## 11. `updatePasswordHash()`：パスワードを変える
 
 ```php
 function updatePasswordHash(PDO $pdo, string $loginId, string $passwordHash): void {
@@ -309,12 +427,14 @@ function updatePasswordHash(PDO $pdo, string $loginId, string $passwordHash): vo
 | パスワードは SQL で比べない | 行を読んで `password_verify()` |
 | 日時は DB に作らせる | `NOW()` |
 | `bool` は 1／0 に変えて渡す | `$isActive ? 1 : 0` |
+| 相手が無くても残すなら `LEFT JOIN` | 今日打刻していない社員（`fetchMemberAttendances()`） |
+| `LEFT JOIN` の右の表の条件は `ON` に | 日付の条件を `WHERE` に書くと、打刻していない社員が消える |
 
 ## 関連するファイル
 
-- 呼ぶ側：`src/auth.php`（[src_auth.md](./src_auth.md)）、`src/admin.php`（[src_admin.md](./src_admin.md)）、`admin/accounts.php`
+- 呼ぶ側：`src/auth.php`（[src_auth.md](./src_auth.md)）、`src/admin.php`（[src_admin.md](./src_admin.md)）、`admin/accounts.php`、`members/index.php`・`members/detail.php`（[members.md](./members.md)）、`src/members.php`（[src_members.md](./src_members.md)）
 - 一緒に使う SQL：`src/queries/employee_id_sequences.php`・`src/queries/departments.php`（[src_queries_departments_sequences_work_settings.md](./src_queries_departments_sequences_work_settings.md)）
 - 接続の設定：`src/dbconnect.php`（[src_dbconnect.md](./src_dbconnect.md)）
 - 表の定義：`docs/db/schema.sql`、[DB設計書.md](../../DB設計書.md)
-- 仕組みの説明：[04_DBとSQL.md](../04_DBとSQL.md)、[03_ログインと権限.md](../03_ログインと権限.md)
-- テスト：`tests/AdminDbTest.php`（アカウントの作成、メールアドレスの重複、一覧）
+- 仕組みの説明：[04_DBとSQL.md](../04_DBとSQL.md)、[03_ログインと権限.md](../03_ログインと権限.md)、[13_社員の勤怠.md](../13_社員の勤怠.md)（LEFT JOIN の ON と WHERE）
+- テスト：`tests/AdminDbTest.php`（アカウントの作成、メールアドレスの重複、一覧）、`tests/MembersDbTest.php`（社員の勤怠の一覧、在籍状態の列）

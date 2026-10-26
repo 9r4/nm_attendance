@@ -12,9 +12,11 @@ PHPUnit で、`src/` の関数が正しく動くかを確かめる。`composer t
 | `RequestsTest.php` | `src/requests.php`（申請の入力の確認・表示） | 使わない |
 | `ApprovalsTest.php` | `src/approvals.php`（承認範囲・一覧の表示） | 使わない |
 | `AdminTest.php` | `src/admin.php`（社員コード・入力の確認） | 使わない |
+| `MembersTest.php` | `src/members.php`（見てよい社員か・一覧の1行の表示）と、`calendarDays()` の見るだけの値 | 使わない |
 | `AssetUrlTest.php` | `src/functions.php` の `assetUrl()` | 使わない |
 | `ApprovalsDbTest.php` | 承認の SQL とトランザクション | テスト用の DB |
 | `AdminDbTest.php` | システム管理者の SQL・採番・トランザクション | テスト用の DB |
+| `MembersDbTest.php` | 社員の勤怠の一覧の SQL（`fetchMemberAttendances()`）と、在籍状態の列（`fetchEmployeeProfile()`） | テスト用の DB |
 
 全部の形を説明すると長いので、**読むときに知っておくと役に立つ書き方**を、実際のテストで説明する。
 
@@ -144,7 +146,7 @@ public function testMatchesPublicData(): void {
 
 - 自分で答えを書くと、答えのほうを間違えることがある。内閣府の祝日の一覧を元にした公開データ（`holiday-jp/holiday_jp`。開発のときだけ使う）を「正解」にして、51年分を全部比べている。
 
-## 6. DB を使うテスト（`ApprovalsDbTest.php`・`AdminDbTest.php`）
+## 6. DB を使うテスト（`ApprovalsDbTest.php`・`AdminDbTest.php`・`MembersDbTest.php`）
 
 ### 毎回、表を作り直す
 
@@ -227,6 +229,41 @@ try {
 
 > **ここが重要**：同時の操作やトランザクションの失敗は、画面を手で操作しても、なかなか起こせない。テストの中で**わざと起こして**確かめることで、「本番でまれに起きる誤り」を前もってつぶせる。
 
+### 「無い」ことを確かめるデータを足す（`MembersDbTest.php`）
+
+```php
+        $this->pdo->exec("INSERT INTO attendances (employee_id, work_date, check_in_at, check_out_at, break_start_at, break_end_at) VALUES
+            ('2025001', '2026-10-26', '2026-10-26 09:01:00', NULL, '2026-10-26 15:00:00', NULL),
+            ('2025001', '2026-10-25', '2026-10-25 08:00:00', '2026-10-25 17:00:00', NULL, NULL),
+            ('2025006', '2026-10-25', '2026-10-25 08:00:00', '2026-10-25 17:00:00', NULL, NULL),
+```
+
+```php
+        // 打刻していない社員（2025006。ほかの日の勤怠はある）も出て、勤怠の列は null（ほかの日の勤怠が混ざらない）
+        $this->assertSame([null, null, null, null], [$rows[1]['check_in_at'], $rows[1]['check_out_at'], $rows[1]['break_start_at'], $rows[1]['break_end_at']]);
+```
+
+- `setUp()` で、テスト用の社員（2025006）に、**今日（10/26）ではない日（10/25）の勤怠だけ**を入れておく。
+- 一覧の SQL が `LEFT JOIN` の `ON` に日付の条件を書いていれば、2025006 は一覧に出て、勤怠の列は全部 `null` になる。もし `WHERE` に書いてしまうと、2025006 が一覧から消えて、テストが失敗する。`ON` に日付を書き忘れると、10/25 の時刻が混ざって、やはり失敗する（[src_queries_employees_login_accounts.md](./src_queries_employees_login_accounts.md) の6章）。
+- 「打刻していない社員」だけでなく、「ほかの日の勤怠はある社員」にしているのがポイント。勤怠が1件も無い社員だけだと、日付の条件の誤りに気付けない。
+
+### 2つの関数が同じ答えになることを確かめる
+
+```php
+        // 一覧の対象と、詳細を見てよい社員が同じであること
+        $manager = ['employee_id' => '2025002', 'role' => ROLE_MANAGER, 'approval_scope' => 'department', 'department_id' => 1];
+        $viewable = [];
+        foreach (['2025001', '2025002', '2025003', '2025004', '2025005', '2025006'] as $id) {
+            if (canViewMember($manager, fetchEmployeeProfile($this->pdo, $id))) {
+                $viewable[] = $id;
+            }
+        }
+        $this->assertSame($this->ids(fetchMemberAttendances($this->pdo, '2025002', 1, '2026-10-26')), $viewable);
+```
+
+- 一覧に出す社員は SQL（`fetchMemberAttendances()`）で、詳細を見てよい社員は PHP（`canViewMember()`）で決めている。別々に書いた2つの条件が、**同じ社員を選ぶ**ことを、テストデータの全員で確かめる。
+- どちらかの条件だけを変えると、このテストが失敗する。「一覧には出るのに詳細は 404」のような食い違いを防ぐ（[src_members.md](./src_members.md) の2章）。
+
 ---
 
 ## まとめ：このフォルダから学べること
@@ -240,6 +277,8 @@ try {
 | 外の正解と比べる | 祝日の公開データ |
 | 毎回まっさらにする | `setUp()` で表を作り直す |
 | わざと失敗・同時の操作を起こす | トリガー、2つの接続とロックの時間切れ |
+| 誤りがあれば失敗するデータを選ぶ | ほかの日の勤怠だけがある社員（`LEFT JOIN` の `ON`） |
+| 別々に書いた条件を突き合わせる | `canViewMember()` と `fetchMemberAttendances()` |
 
 ## 関連する資料
 
